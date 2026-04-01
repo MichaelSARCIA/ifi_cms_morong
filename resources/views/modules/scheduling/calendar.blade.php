@@ -61,6 +61,15 @@
             border-color: #f3f4f6;
         }
 
+        .fc .fc-col-header-cell {
+            background-color: #ffffff;
+            z-index: 10 !important;
+        }
+
+        .dark .fc .fc-col-header-cell {
+            background-color: #1f2937;
+        }
+
         .fc-daygrid-day-number {
             font-size: 0.875rem;
             font-weight: 500;

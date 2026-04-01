@@ -244,38 +244,61 @@
         }
         
         document.addEventListener('alpine:init', () => {
-            Alpine.data('tableSearch', () => ({
-                isLoading: false,
-                submitSearch() {
-                    this.isLoading = true;
+            Alpine.data('tableSearch', function() {
+                let abortController = null;
+                
+                return {
+                    isLoading: false,
+                    submitSearch() {
+                        if (abortController) {
+                            abortController.abort();
+                        }
+                        abortController = new AbortController();
+                        const reqSignal = abortController.signal;
+
+                        this.isLoading = true;
+                        
+                        let primaryForm = this.$root.querySelector('form.search-form') || this.$root.querySelector('form');
+                        // Base URL without existing query params
+                        let url = new URL(primaryForm ? (primaryForm.action || window.location.href).split('?')[0] : window.location.href.split('?')[0]);
+                        let params = new URLSearchParams();
                     
-                    let primaryForm = this.$root.querySelector('form.search-form') || this.$root.querySelector('form');
-                    let url = new URL(primaryForm ? (primaryForm.action || window.location.href) : window.location.href);
-                    let params = new URLSearchParams();
-                    
-                    // Collect data from all forms inside the container
+                    // 1. Identify all keys present in our search/filter forms
+                    let controlledKeys = new Set();
+                    this.$root.querySelectorAll('form').forEach(f => {
+                        new FormData(f).forEach((v, k) => controlledKeys.add(k));
+                    });
+
+                    // 2. Start with current URL parameters, but exclude anything our forms control
+                    let currentUrlParams = new URLSearchParams(window.location.search);
+                    currentUrlParams.forEach((value, key) => {
+                        if (!controlledKeys.has(key) && key !== 'page') {
+                            params.set(key, value);
+                        }
+                    });
+
+                    // 3. Add values from the forms
                     this.$root.querySelectorAll('form').forEach(f => {
                         let formData = new FormData(f);
                         for (let [key, value] of formData.entries()) {
                             if (value !== '') {
                                 params.set(key, value);
+                            } else {
+                                // If empty, explicitly ensure it's removed from final params
+                                params.delete(key);
                             }
                         }
                     });
-                    
-                    // Retain existing URL parameters that are not in any form
-                    let currentUrlParams = new URLSearchParams(window.location.search);
-                    currentUrlParams.forEach((value, key) => {
-                        if (!params.has(key)) {
-                            params.set(key, value);
-                        }
-                    });
+
+                    // 4. Always reset page to 1 on any search/filter change
+                    params.delete('page');
                     
                     url.search = params.toString();
                     window.history.pushState({}, '', url);
                     
                     fetch(url, {
-                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        signal: reqSignal
                     })
                     .then(res => res.text())
                     .then(html => {
@@ -285,13 +308,71 @@
                         let oldContainer = this.$root.classList.contains('search-results-container') ? this.$root : this.$root.querySelector('.search-results-container');
                         
                         if (newContainer && oldContainer) {
+                            // Preserve active element state to prevent keystroke loss
+                            let activeEl = document.activeElement;
+                            let preserveFocus = false;
+                            let activeSelector = '';
+                            let activeValue = '';
+                            let selectionStart = null;
+                            let selectionEnd = null;
+                            
+                            if (activeEl && oldContainer.contains(activeEl) && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
+                                preserveFocus = true;
+                                if (activeEl.name) {
+                                    activeSelector = activeEl.tagName.toLowerCase() + '[name="' + activeEl.name + '"]';
+                                } else if (activeEl.id) {
+                                    activeSelector = '#' + activeEl.id;
+                                }
+                                activeValue = activeEl.value;
+                                if (activeEl.tagName === 'INPUT' && (activeEl.type === 'text' || activeEl.type === 'search' || activeEl.type === 'email')) {
+                                    selectionStart = activeEl.selectionStart;
+                                    selectionEnd = activeEl.selectionEnd;
+                                }
+                            }
+
                             oldContainer.innerHTML = newContainer.innerHTML;
+
+                            if (preserveFocus && activeSelector) {
+                                setTimeout(() => {
+                                    let newEl = oldContainer.querySelector(activeSelector);
+                                    if (newEl) {
+                                        newEl.focus();
+                                        if (newEl.tagName === 'INPUT' && (newEl.type === 'text' || newEl.type === 'search')) {
+                                            newEl.value = activeValue; // Preserve letters typed during AJAX
+                                            if (selectionStart !== null) {
+                                                newEl.setSelectionRange(selectionStart, selectionEnd);
+                                            }
+                                        }
+                                    }
+                                }, 10);
+                            }
                         }
                     })
-                    .catch(err => console.error('Search failed:', err))
+                    .catch(err => {
+                        if (err.name === 'AbortError') {
+                            return; // Do nothing if aborted
+                        }
+                        console.error('Search failed:', err);
+                    })
                     .finally(() => {
-                        this.isLoading = false;
+                        // Only remove loading state if the request wasn't aborted
+                        if (abortController && reqSignal === abortController.signal && !reqSignal.aborted) {
+                            this.isLoading = false;
+                        }
                     });
+                },
+                clearFilters() {
+                    this.$root.querySelectorAll('form').forEach(f => {
+                        f.querySelectorAll('select, input[type="date"]').forEach(el => {
+                            if (el.name !== 'per_page') {
+                                el.value = '';
+                            }
+                        });
+                        f.querySelectorAll('.datepicker-input').forEach(el => {
+                            el.value = '';
+                        });
+                    });
+                    this.submitSearch();
                 },
                 handlePagination(e) {
                     let link = e.target.closest('a');
@@ -321,8 +402,9 @@
                         });
                     }
                 }
-            }));
+            };
         });
+    });
     </script>
     @stack('scripts')
 </body>

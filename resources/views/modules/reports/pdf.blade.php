@@ -77,10 +77,10 @@
                     @php
                         $customData = $applicant->filtered_custom_data;
                         $address = $customData['complete_address'] ?? '';
-                        $age = $customData['age_date_of_birth'] ?? '';
+                        $age = $customData['age'] ?? ($customData['age_date_of_birth'] ?? '');
                         $civilStatus = $customData['civil_status'] ?? '';
                         $gender = $customData['gender'] ?? '';
-                        $email = \App\Models\ServiceRequest::formatValue($applicant->email) ?: ($customData['email_address'] ?? '');
+                        $email = $applicant->email ?? ($customData['email_address'] ?? '');
                     @endphp
                     <tr>
                         <td style="text-align:center; font-weight:bold;">{{ $loop->iteration }}.</td>

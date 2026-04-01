@@ -27,31 +27,19 @@
         </div>
     @endif
     <!-- TABLE -->
-    <div
-        class="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden search-results-container relative" x-data="tableSearch()" @click="handlePagination">
-        <!-- Removed blur loading state for instant feel -->
-        
+    <div x-data="tableSearch()">
         <!-- Filters -->
-        <div class="p-6 border-b border-gray-100 dark:border-gray-700">
+        <div class="p-6 bg-white dark:bg-gray-800 rounded-t-3xl border border-gray-100 dark:border-gray-700 border-b-0 shadow-sm relative z-20">
             @if($isFeePage ?? false)
                 <form action="{{ route('donations') }}" method="GET" class="flex flex-wrap items-center gap-4 w-full search-form" @submit.prevent="submitSearch">
                     <input type="hidden" name="type" value="fee">
                     
-                    <div class="flex items-center gap-2 mr-2">
-                        <label for="per_page_fee" class="text-xs font-bold text-gray-400 uppercase tracking-wider">Show</label>
-                        <select name="per_page" id="per_page_fee" @change="submitSearch"
-                            class="dropdown-btn w-20 px-3 py-1.5 h-10">
-                            @foreach([5, 10, 15, 20, 50] as $n)
-                                <option value="{{ $n }}" {{ request('per_page', 10) == $n ? 'selected' : '' }}>{{ $n }}</option>
-                            @endforeach
-                        </select>
-                    </div>
 
                     <!-- Search Input -->
                     <div class="relative max-w-xs w-full lg:w-auto">
                         <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                         <input type="text" name="search" value="{{ request('search') }}" placeholder="Search payer..."
-                            @input.debounce.300ms="submitSearch"
+                            @input.debounce.50ms="submitSearch"
                             class="w-full lg:w-48 pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-medium text-gray-700 dark:text-gray-300">
                     </div>
 
@@ -79,32 +67,24 @@
                     @endif
 
                     <div class="flex items-center gap-2">
-                        @if(request()->anyFilled(['search', 'service_type', 'payment_status']))
-                            <a href="{{ route('donations', ['type' => 'fee']) }}"
-                                class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-medium transition-all px-2">
-                                <i class="fas fa-times-circle mr-1"></i>Clear
-                            </a>
+                        @if(request()->anyFilled(['service_type', 'payment_status']))
+                            <button type="button" @click="clearFilters()"
+                                class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-bold transition-all px-2 flex items-center gap-1">
+                                <i class="fas fa-times-circle"></i>Clear
+                            </button>
                         @endif
                     </div>
                 </form>
             @else
                 <form action="{{ route('donations') }}" method="GET" class="flex flex-wrap items-center gap-4 w-full search-form" @submit.prevent="submitSearch">
                     
-                    <div class="flex items-center gap-2 mr-2">
-                        <label for="per_page_donations" class="text-xs font-bold text-gray-400 uppercase tracking-wider">Show</label>
-                        <select name="per_page" id="per_page_donations" @change="submitSearch"
-                            class="dropdown-btn w-20 px-3 py-1.5 h-10">
-                            @foreach([5, 10, 15, 20, 50] as $n)
-                                <option value="{{ $n }}" {{ request('per_page', 10) == $n ? 'selected' : '' }}>{{ $n }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+
 
                     <!-- Search Input -->
                     <div class="relative max-w-xs w-full lg:w-auto">
                         <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                         <input type="text" name="search" value="{{ request('search') }}" placeholder="Search donor..."
-                            @input.debounce.300ms="submitSearch"
+                            @input.debounce.50ms="submitSearch"
                             class="w-full lg:w-48 pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-medium text-gray-700 dark:text-gray-300">
                     </div>
 
@@ -112,25 +92,27 @@
                         <select name="donation_type" @change="submitSearch"
                             class="dropdown-btn w-full lg:w-auto">
                             <option value="">All Donation Types</option>
-                            <option value="Donation" {{ request('donation_type') == 'Donation' ? 'selected' : '' }}>Donation</option>
+                            <option value="General Donation" {{ request('donation_type') == 'General Donation' ? 'selected' : '' }}>General Donation</option>
                             <option value="Tithes" {{ request('donation_type') == 'Tithes' ? 'selected' : '' }}>Tithes</option>
                             <option value="Love Offering" {{ request('donation_type') == 'Love Offering' ? 'selected' : '' }}>Love Offering</option>
+                            <option value="Others" {{ request('donation_type') == 'Others' ? 'selected' : '' }}>Others</option>
                         </select>
                     </div>
 
                     <div class="flex items-center gap-2">
-                        @if(request()->anyFilled(['search', 'donation_type']))
-                            <a href="{{ route('donations') }}"
-                                class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-medium transition-all px-2">
-                                <i class="fas fa-times-circle mr-1"></i>Clear
-                            </a>
+                        @if(request()->anyFilled(['donation_type']))
+                            <button type="button" @click="clearFilters()"
+                                class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-bold transition-all px-2 flex items-center gap-1">
+                                <i class="fas fa-times-circle"></i>Clear
+                            </button>
                         @endif
                     </div>
                 </form>
             @endif
         </div>
 
-        <div class="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] custom-scrollbar">
+        <div class="bg-white dark:bg-gray-800 rounded-b-3xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden search-results-container relative" @click="handlePagination">
+            <div class="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] custom-scrollbar">
             <table class="w-full text-left border-collapse relative">
                 <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 text-sm font-bold text-gray-400 uppercase border-b border-gray-100 dark:border-gray-700">
                     <tr>
@@ -151,7 +133,7 @@
                         <tr id="row-{{ $row->id }}" class="hover:bg-gray-50/50 dark:hover:bg-gray-700/20 transition-colors">
                             @if($isFeePage ?? false)
                                 <!-- SERVICE FEES TABLE ROW -->
-                                <td class="px-6 py-4 text-sm font-bold text-gray-700 dark:text-gray-200">
+                                <td class="px-6 py-4 text-base font-bold text-gray-900 dark:text-white">
                                     {{ $row->created_at->format('F d, Y') }}
                                 </td>
                                 <td class="px-6 py-4">
@@ -161,7 +143,7 @@
                                             {{ strtoupper(substr($row->first_name, 0, 1)) }}
                                         </div>
                                         <div>
-                                            <p class="text-sm font-bold text-gray-700 dark:text-gray-200">{{ $row->first_name }}
+                                            <p class="text-base font-bold text-gray-900 dark:text-white leading-tight">{{ $row->first_name }}
                                                 {{ $row->last_name }}
                                             </p>
                                             <p class="text-xs text-gray-400">Req #{{ $row->id }}</p>
@@ -174,7 +156,7 @@
                                         {{ $row->service_type }}
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 text-right font-bold text-gray-800 dark:text-white">
+                                <td class="px-6 py-4 text-right font-bold text-lg text-gray-900 dark:text-white">
                                     @php
                                         // Find fee from service types
                                         $serviceFee = $services->firstWhere('name', $row->service_type)?->fee ?? 0;
@@ -236,7 +218,7 @@
                                 </td>
                             @else
                                 <!-- DONATIONS TABLE ROW -->
-                                <td class="px-6 py-4 text-sm font-bold text-gray-700 dark:text-gray-200">
+                                <td class="px-6 py-4 text-base font-bold text-gray-900 dark:text-white">
                                     {{ date('F d, Y', strtotime($row->date_received)) }}
                                 </td>
                                 <td class="px-6 py-4">
@@ -246,23 +228,24 @@
                                             {{ strtoupper(substr($row->donor_name, 0, 1)) }}
                                         </div>
                                         <span
-                                            class="text-sm font-bold text-gray-700 dark:text-gray-200">{{ $row->donor_name }}</span>
+                                            class="text-base font-bold text-gray-900 dark:text-white">{{ $row->donor_name }}</span>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4">
-                                    <span
-                                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm font-bold {{ ServiceHelper::getDonationBadgeClass($row->type) }}">
-                                        @if(str_contains(strtolower($row->type), 'donation'))
-                                            <i class="fas fa-heart text-[10px]"></i>
-                                        @elseif(str_contains(strtolower($row->type), 'tithe'))
-                                            <i class="fas fa-hand-holding-usd text-[10px]"></i>
-                                        @else
-                                            <i class="fas fa-star text-[10px]"></i>
-                                        @endif
-                                        {{ $row->type }}
-                                    </span>
+                                    @php
+                                    $donConfig = match($row->type) {
+                                        'General Donation', 'Donation' => ['label' => 'General Donation', 'icon' => 'fa-heart'],
+                                        'Tithes'                       => ['label' => 'Tithes',           'icon' => 'fa-hand-holding-usd'],
+                                        'Others', 'Other'              => ['label' => 'Others',           'icon' => 'fa-circle-plus'],
+                                        default                        => ['label' => $row->type,          'icon' => 'fa-star'],
+                                    };
+                                @endphp
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm font-bold {{ ServiceHelper::getDonationBadgeClass($row->type) }}">
+                                    <i class="fas {{ $donConfig['icon'] }} text-[10px]"></i>
+                                    {{ $donConfig['label'] }}
+                                </span>
                                 </td>
-                                <td class="px-6 py-4 text-right font-bold text-gray-800 dark:text-white">₱
+                                <td class="px-6 py-4 text-right text-lg font-bold text-gray-900 dark:text-white">₱
                                     {{ number_format($row->amount, 2) }}
                                 </td>
                             @endif
@@ -279,6 +262,7 @@
         </div>
     <div class="mt-4 px-4 pb-4">
         {{ $donations->links() }}
+    </div>
     </div>
     </div>
 
@@ -332,9 +316,10 @@
                                         @if($isFeePage ?? false)
                                             <option value="Service Fee" selected>Service Fee</option>
                                         @else
-                                            <option value="Donation">General Donation</option>
+                                            <option value="General Donation">General Donation</option>
                                             <option value="Tithes">Tithes</option>
                                             <option value="Love Offering">Love Offering</option>
+                                            <option value="Others">Others</option>
                                         @endif
                                     </select>
                                 </div>

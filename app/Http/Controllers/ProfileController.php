@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Helpers\AuditLogger;
 
@@ -52,10 +53,27 @@ class ProfileController extends Controller
         return redirect()->back()->with('error', 'No file uploaded.');
     }
 
+    public function clearPhoto()
+    {
+        $user = Auth::user();
+        if ($user->profile_pic) {
+            $oldPath = public_path('uploads/' . $user->profile_pic);
+            if (file_exists($oldPath)) {
+                @unlink($oldPath);
+            }
+            $user->profile_pic = null;
+            $user->save();
+            AuditLogger::log('Clear Profile Picture', 'Removed profile picture');
+            return redirect()->back()->with('success', 'Profile picture removed successfully.');
+        }
+        return redirect()->back()->with('error', 'No profile picture to remove.');
+    }
+
     public function updateAccount(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'current_password' => 'required_with:password|nullable|string',
             'password' => 'nullable|string|min:8|confirmed',
         ]);
 
@@ -63,6 +81,9 @@ class ProfileController extends Controller
         $user->name = $request->name;
 
         if ($request->filled('password')) {
+            if (!Hash::check($request->current_password, $user->password)) {
+                return redirect()->back()->with('error', 'Incorrect current password. Password not updated.');
+            }
             $user->password = Hash::make($request->password);
             AuditLogger::log('Update Password', 'Changed account password');
         }

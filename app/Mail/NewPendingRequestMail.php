@@ -16,6 +16,7 @@ class NewPendingRequestMail extends Mailable implements ShouldQueue
     use Queueable, SerializesModels;
 
     public $serviceRequest;
+    public $settings;
 
     /**
      * Create a new message instance.
@@ -23,6 +24,7 @@ class NewPendingRequestMail extends Mailable implements ShouldQueue
     public function __construct(ServiceRequest $serviceRequest)
     {
         $this->serviceRequest = $serviceRequest;
+        $this->settings = \App\Models\SystemSetting::pluck('value', 'key')->toArray();
     }
 
     /**
@@ -31,7 +33,7 @@ class NewPendingRequestMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'New Pending Service Request Submitted',
+            subject: 'New Pending Service Request - ' . ($this->settings['system_short_name'] ?? 'IFI CMS'),
         );
     }
 
@@ -42,6 +44,10 @@ class NewPendingRequestMail extends Mailable implements ShouldQueue
     {
         return new Content(
             view: 'emails.new_pending_request',
+            with: [
+                'serviceRequest' => $this->serviceRequest,
+                'settings' => $this->settings,
+            ],
         );
     }
 

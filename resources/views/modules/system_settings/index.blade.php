@@ -9,46 +9,46 @@
     <div x-data="serviceSettings"
         class="flex-1 flex flex-col h-full overflow-hidden">
 
-        <!-- TABS -->
-        <div class="w-full -mt-2 mb-5 border-b border-gray-200 dark:border-gray-800 px-1">
-            <nav class="flex space-x-8" aria-label="Tabs">
-                @if(Auth::user()->hasModule('system_settings_general'))
-                <button @click="activeTab = 'general'"
-                    :class="activeTab === 'general' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'"
-                    class="whitespace-nowrap py-3 px-1 border-b-2 font-bold text-sm transition-colors flex items-center gap-2.5 outline-none">
-                    <i class="fas fa-church"></i> General Settings
-                </button>
-                @endif
-                @if(Auth::user()->hasModule('system_settings_priests'))
-                <button @click="activeTab = 'priests'"
-                    :class="activeTab === 'priests' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'"
-                    class="whitespace-nowrap py-3 px-1 border-b-2 font-bold text-sm transition-colors flex items-center gap-2.5 outline-none">
-                    <i class="fas fa-calendar-check"></i> Priest Schedules
-                </button>
-                @endif
-                @if(Auth::user()->hasModule('system_settings_services'))
-                <button @click="activeTab = 'services'"
-                    :class="activeTab === 'services' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'"
-                    class="whitespace-nowrap py-3 px-1 border-b-2 font-bold text-sm transition-colors flex items-center gap-2.5 outline-none">
-                    <i class="fas fa-scroll"></i> Services & Requirements
-                </button>
-                @endif
-                @if(Auth::user()->hasModule('system_settings_payment_methods'))
-                <button @click="activeTab = 'payment_methods'"
-                    :class="activeTab === 'payment_methods' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'"
-                    class="whitespace-nowrap py-3 px-1 border-b-2 font-bold text-sm transition-colors flex items-center gap-2.5 outline-none">
-                    <i class="fas fa-credit-card"></i> Payment Methods
-                </button>
-                @endif
-                @if(Auth::user()->hasModule('system_settings_database'))
-                <button @click="activeTab = 'database'"
-                    :class="activeTab === 'database' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'"
-                    class="whitespace-nowrap py-3 px-1 border-b-2 font-bold text-sm transition-colors flex items-center gap-2.5 outline-none">
-                    <i class="fas fa-database"></i> Backup &amp; Database
-                </button>
-                @endif
-            </nav>
-        </div>
+         <!-- TABS -->
+         <div class="w-full -mt-2 mb-5 border-b border-gray-200 dark:border-gray-800 px-1 overflow-x-auto scrollbar-hide">
+             <nav class="flex space-x-8 min-w-max pb-0.5" aria-label="Tabs">
+                 @if(Auth::user()->hasModule('system_settings_general'))
+                 <button @click="activeTab = 'general'"
+                     :class="activeTab === 'general' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'"
+                     class="whitespace-nowrap py-3 px-1 border-b-2 font-bold text-sm transition-colors flex items-center gap-2.5 outline-none">
+                     <i class="fas fa-church"></i> General Settings
+                 </button>
+                 @endif
+                 @if(Auth::user()->hasModule('system_settings_priests'))
+                 <button @click="activeTab = 'priests'"
+                     :class="activeTab === 'priests' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'"
+                     class="whitespace-nowrap py-3 px-1 border-b-2 font-bold text-sm transition-colors flex items-center gap-2.5 outline-none">
+                     <i class="fas fa-calendar-check"></i> Priest Schedules
+                 </button>
+                 @endif
+                 @if(Auth::user()->hasModule('system_settings_services'))
+                 <button @click="activeTab = 'services'"
+                     :class="activeTab === 'services' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'"
+                     class="whitespace-nowrap py-3 px-1 border-b-2 font-bold text-sm transition-colors flex items-center gap-2.5 outline-none">
+                     <i class="fas fa-scroll"></i> Services & Requirements
+                 </button>
+                 @endif
+                 @if(Auth::user()->hasModule('system_settings_payment_methods'))
+                 <button @click="activeTab = 'payment_methods'"
+                     :class="activeTab === 'payment_methods' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'"
+                     class="whitespace-nowrap py-3 px-1 border-b-2 font-bold text-sm transition-colors flex items-center gap-2.5 outline-none">
+                     <i class="fas fa-credit-card"></i> Payment Methods
+                 </button>
+                 @endif
+                 @if(Auth::user()->hasModule('system_settings_database'))
+                 <button @click="activeTab = 'database'"
+                     :class="activeTab === 'database' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'"
+                     class="whitespace-nowrap py-3 px-1 border-b-2 font-bold text-sm transition-colors flex items-center gap-2.5 outline-none">
+                     <i class="fas fa-database"></i> Backup &amp; Database
+                 </button>
+                 @endif
+             </nav>
+         </div>
 
         <!-- CONTENT AREA -->
         <div class="flex-1 overflow-y-auto pr-2">
@@ -134,7 +134,7 @@
                                     Title / Main Heading</label>
                                 <input type="text" name="system_name"
                                     value="{{ $settings['system_name'] ?? 'Iglesia Filipina Independiente' }}"
-                                    class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-800 dark:text-white">
+                                    class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-900 dark:text-white">
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
@@ -142,14 +142,14 @@
                                         Name (For Tags)</label>
                                     <input type="text" name="system_short_name"
                                         value="{{ $settings['system_short_name'] ?? 'IFI CMS' }}"
-                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-800 dark:text-white">
+                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-900 dark:text-white">
                                 </div>
                                 <div>
                                     <label class="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Login
                                         Form Tagline</label>
                                     <input type="text" name="system_tagline"
                                         value="{{ $settings['system_tagline'] ?? 'Church Management System' }}"
-                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-800 dark:text-white">
+                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-900 dark:text-white">
                                 </div>
                             </div>
                         </div>
@@ -173,7 +173,7 @@
                                         class="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Official
                                         Church Name</label>
                                     <input type="text" name="church_name" value="{{ $settings['church_name'] ?? '' }}"
-                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-800 dark:text-white">
+                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-900 dark:text-white">
                                 </div>
                                 <div>
                                     <label
@@ -181,14 +181,14 @@
                                         Subtitle</label>
                                     <input type="text" name="parish_name"
                                         value="{{ $settings['parish_name'] ?? 'Parokya ng San Geronimo' }}"
-                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-800 dark:text-white">
+                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-900 dark:text-white">
                                 </div>
                                 <div class="col-span-1 md:col-span-2">
                                     <label
                                         class="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Complete
                                         Address</label>
                                     <input type="text" name="church_address" value="{{ $settings['church_address'] ?? '' }}"
-                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-800 dark:text-white">
+                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-900 dark:text-white">
                                 </div>
                                 <div>
                                     <label
@@ -196,7 +196,7 @@
                                         Number</label>
                                     <input type="text" name="church_contact" value="{{ $settings['church_contact'] ?? '' }}"
                                         placeholder="e.g. +63 912 345 6789"
-                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-800 dark:text-white">
+                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-900 dark:text-white">
                                 </div>
                                 <div>
                                     <label
@@ -204,14 +204,14 @@
                                         Email</label>
                                     <input type="email" name="parish_email" value="{{ $settings['parish_email'] ?? '' }}"
                                         placeholder="e.g. contact@parish.com"
-                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-800 dark:text-white">
+                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-900 dark:text-white">
                                 </div>
                                 <div>
                                     <label
                                         class="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Current
                                         Parish Priest</label>
                                     <input type="text" name="church_priest" value="{{ $settings['church_priest'] ?? '' }}"
-                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-800 dark:text-white">
+                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-gray-900 dark:text-white">
                                 </div>
                             </div>
                         </div>
@@ -263,15 +263,17 @@
                                     <td class="px-6 py-4">
                                         <div class="flex items-center gap-4">
                                             <div
-                                                class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 flex items-center justify-center border border-gray-200 dark:border-gray-600 shrink-0 shadow-sm">
+                                                class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-black/10"
+                                                style="background-color: {{ $s->color ?? '#6366f1' }}; color: #fff;">
                                                 <i class="fas {{ $s->icon ?? 'fa-church' }} text-lg"></i>
                                             </div>
                                             <div>
                                                 <div class="font-bold text-gray-900 dark:text-white text-base">{{ $s->name }}
                                                 </div>
-                                                <div class="text-xs text-gray-500 mt-0.5"><i
-                                                        class="fas fa-palette mr-1 text-{{ $s->color ?? 'blue' }}-500"></i>
-                                                    Theme: {{ ucfirst($s->color ?? 'blue') }}</div>
+                                                <div class="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5">
+                                                    <span class="inline-block w-3 h-3 rounded-full border border-black/10" style="background-color: {{ $s->color ?? '#6366f1' }}"></span>
+                                                    {{ $s->color ?? '#6366f1' }}
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
@@ -314,12 +316,12 @@
                                             </button>
                                             <form action="{{ route('system-settings.destroy-service', $s->id) }}" method="POST"
                                                 class="inline-block"
-                                                onsubmit="event.preventDefault(); showConfirm('Delete Service', 'Are you sure you want to delete this service type? Current requests linked to this service might be affected.', 'bg-red-600 hover:bg-red-700', () => this.submit(), 'Delete')">
+                                                onsubmit="event.preventDefault(); showConfirm('Archive Service', 'Are you sure you want to archive this service type? Current requests linked to this service might be affected.', 'bg-amber-600 hover:bg-amber-700', () => this.submit(), 'Archive')">
                                                 @csrf @method('DELETE')
                                                 <button type="submit"
-                                                    class="w-8 h-8 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-red-600 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center justify-center transition-all tooltip"
-                                                    title="Delete Service">
-                                                    <i class="fas fa-trash text-xs"></i>
+                                                    class="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-sm flex items-center justify-center transition-all tooltip"
+                                                    title="Archive Service">
+                                                    <i class="fas fa-box-archive text-xs"></i>
                                                 </button>
                                             </form>
                                         </div>
@@ -344,6 +346,74 @@
                         </tbody>
                     </table>
                 </div>
+                @if($archivedServices->count() > 0)
+                    <div class="mt-12 pt-8 border-t border-gray-100 dark:border-gray-800">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center">
+                                <i class="fas fa-box-archive text-sm"></i>
+                            </div>
+                            <h4 class="font-bold text-gray-900 dark:text-white">Archived Services</h4>
+                            <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 text-[10px] font-bold rounded-md uppercase tracking-tighter">{{ $archivedServices->count() }} Hidden</span>
+                        </div>
+
+                        <div class="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead class="bg-gray-50/50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    <tr>
+                                        <th class="px-6 py-3">Archived Service</th>
+                                        <th class="px-6 py-3">Original Fee</th>
+                                        <th class="px-6 py-3 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-50 dark:divide-gray-800">
+                                    @foreach($archivedServices as $as)
+                                        <tr class="hover:bg-gray-50/30 dark:hover:bg-gray-700/20 transition-colors group">
+                                            <td class="px-6 py-4">
+                                                <div class="flex items-center gap-4">
+                                                    <div class="w-10 h-10 rounded-2xl bg-gray-50 dark:bg-gray-900/50 text-gray-400 flex items-center justify-center border border-gray-100 dark:border-gray-700 shrink-0">
+                                                        <i class="fas {{ $as->icon ?? 'fa-church' }} text-lg"></i>
+                                                    </div>
+                                                    <div>
+                                                        <div class="font-bold text-gray-900 dark:text-white">{{ $as->name }}</div>
+                                                        <div class="text-xs text-gray-400">Archived on {{ $as->deleted_at->format('M d, Y') }}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="font-mono text-gray-900 dark:text-white font-bold text-sm bg-gray-50 dark:bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-gray-700 inline-block">
+                                                    ₱{{ number_format($as->fee, 2) }}
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 text-right">
+                                                <div class="flex items-center justify-end gap-2">
+                                                    <form action="{{ route('system-settings.restore-service', $as->id) }}" method="POST" class="inline-block"
+                                                        onsubmit="event.preventDefault(); showConfirm('Restore Service', 'Are you sure you want to restore this service? It will become active and visible again.', 'bg-green-600 hover:bg-green-700', () => this.submit(), 'Restore')">
+                                                        @csrf
+                                                        <button type="submit" 
+                                                            class="w-8 h-8 rounded-lg bg-green-600 hover:bg-green-700 text-white shadow-sm flex items-center justify-center transition-all tooltip"
+                                                            title="Restore Service">
+                                                            <i class="fas fa-rotate-left text-xs"></i>
+                                                        </button>
+                                                    </form>
+
+                                                    <form action="{{ route('system-settings.force-delete-service', $as->id) }}" method="POST" class="inline-block"
+                                                        onsubmit="event.preventDefault(); showConfirm('Permanently Delete Service', 'Are you sure? This service will be GONE FOREVER and cannot be restored.', 'bg-red-600 hover:bg-red-700', () => this.submit(), 'Delete Permanently')">
+                                                        @csrf @method('DELETE')
+                                                        <button type="submit" 
+                                                            class="w-8 h-8 rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-sm flex items-center justify-center transition-all tooltip"
+                                                            title="Delete Permanently">
+                                                            <i class="fas fa-trash-alt text-xs"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
             </div>
 
             <!-- DATABASE MANAGEMENT -->
@@ -369,7 +439,7 @@
                     class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-8">
                     <div
                         class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
-                        <h3 class="font-bold text-lg text-gray-800 dark:text-white">Existing Archives</h3>
+                        <h3 class="font-bold text-lg text-gray-900 dark:text-white">Existing Archives</h3>
 
                         <!-- Invisible Restore Form (triggered by action button) -->
                         <form action="{{ route('system-settings.restore') }}" method="POST" enctype="multipart/form-data"
@@ -627,24 +697,28 @@
                                 </div>
 
                                 <!-- Time & Capacity -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                                    <div>
+                                <div class="space-y-8 mb-8">
+                                    <div class="max-w-2xl">
                                         <label class="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Standard Working Hours</label>
-                                        <div class="flex items-center gap-3">
-                                            <input type="time" x-model="formData.working_hours.start" required
-                                                class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-gray-700 dark:text-white">
-                                            <span class="text-gray-400 font-bold">to</span>
-                                            <input type="time" x-model="formData.working_hours.end" required
-                                                class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-gray-700 dark:text-white">
+                                        <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] items-center gap-3">
+                                            <div class="relative">
+                                                <input type="time" x-model="formData.working_hours.start" required
+                                                    class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-gray-700 dark:text-white">
+                                            </div>
+                                            <span class="text-gray-400 font-bold px-2 text-center">to</span>
+                                            <div class="relative">
+                                                <input type="time" x-model="formData.working_hours.end" required
+                                                    class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-gray-700 dark:text-white">
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div>
+                                    <div class="max-w-md">
                                         <label class="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Max Services Per Day</label>
-                                        <div class="relative">
+                                        <div class="relative group">
                                             <input type="number" min="1" max="50" x-model="formData.max_services_per_day" required
-                                                class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary font-bold text-gray-900 dark:text-white text-lg">
-                                            <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400 text-sm">
+                                                class="w-full pl-4 pr-32 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary font-bold text-gray-900 dark:text-white text-lg">
+                                            <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400 text-xs font-bold uppercase tracking-widest bg-gray-50 dark:bg-gray-900 pl-2">
                                                 appointments
                                             </div>
                                         </div>
@@ -708,14 +782,14 @@
                             @forelse($paymentMethods as $pm)
                                 <tr x-data="{ isActive: {{ $pm->is_active ? 'true' : 'false' }}, toggling: false }"
                                     class="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors group">
-                                    <td class="px-6 py-4">
-                                        <div class="flex items-center gap-4">
-                                            <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-primary flex items-center justify-center border border-blue-100 dark:border-blue-800/30 shrink-0 shadow-sm">
-                                                <i class="fas {{ $pm->icon ?? 'fa-money-bill' }} text-lg"></i>
-                                            </div>
-                                            <div class="font-bold text-gray-900 dark:text-white text-base">{{ $pm->name }}</div>
-                                        </div>
-                                    </td>
+                                            <td class="px-6 py-4">
+                                                <div class="flex items-center gap-4">
+                                                    <div class="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-primary flex items-center justify-center border border-blue-100 dark:border-blue-800/30 shrink-0 shadow-sm">
+                                                        <i class="fas {{ $pm->icon ?? 'fa-money-bill' }} text-lg"></i>
+                                                    </div>
+                                                    <div class="font-bold text-gray-900 dark:text-white">{{ $pm->name }}</div>
+                                                </div>
+                                            </td>
                                     <td class="px-6 py-4">
                                         <span x-show="isActive" style="display: {{ $pm->is_active ? 'inline-flex' : 'none' }}" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-100 dark:border-green-800/30">
                                             <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span> Active
@@ -725,13 +799,13 @@
                                         </span>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <span class="font-mono text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 px-2 py-1 rounded-lg border border-gray-100 dark:border-gray-700">
+                                        <div class="font-mono text-gray-500 font-bold text-sm bg-gray-50 dark:bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-gray-700 inline-block shadow-inner">
                                             {{ $pm->sort_order }}
-                                        </span>
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 text-right">
                                         <div class="flex items-center justify-end gap-2">
-                                            <!-- Toggle Active (instant AJAX) -->
+                                            <!-- Toggle Active -->
                                             <button
                                                 @click="
                                                     toggling = true;
@@ -750,21 +824,23 @@
                                                 :title="isActive ? 'Deactivate' : 'Activate'">
                                                 <i class="fas text-sm" :class="isActive ? 'fa-toggle-on' : 'fa-toggle-off'"></i>
                                             </button>
-                                            <!-- Edit -->
+                                            
+                                            <!-- Edit (Plain gray, consistent with services edit button) -->
                                             <button
                                                 @click="openPmModal(true, { id: {{ $pm->id }}, name: '{{ addslashes($pm->name) }}', icon: '{{ $pm->icon ?? 'fa-money-bill' }}', sort_order: {{ $pm->sort_order }} })"
-                                                class="w-8 h-8 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 flex items-center justify-center transition-all tooltip"
+                                                class="w-8 h-8 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center justify-center transition-all tooltip"
                                                 title="Edit">
                                                 <i class="fas fa-pen text-xs"></i>
                                             </button>
-                                            <!-- Delete -->
+
+                                            <!-- Archive -->
                                             <form action="{{ route('system-settings.destroy-payment-method', $pm->id) }}" method="POST" class="inline-block"
-                                                onsubmit="event.preventDefault(); showConfirm('Delete Payment Method', 'Are you sure you want to delete &quot;{{ addslashes($pm->name) }}&quot;?', 'bg-red-600 hover:bg-red-700', () => this.submit(), 'Delete')">
+                                                onsubmit="event.preventDefault(); showConfirm('Archive Payment Method', 'Are you sure you want to archive &quot;{{ addslashes($pm->name) }}&quot;? It will be hidden from payment forms.', 'bg-amber-600 hover:bg-amber-700', () => this.submit(), 'Archive')">
                                                 @csrf @method('DELETE')
                                                 <button type="submit"
-                                                    class="w-8 h-8 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-red-600 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center justify-center transition-all tooltip"
-                                                    title="Delete">
-                                                    <i class="fas fa-trash text-xs"></i>
+                                                    class="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-sm flex items-center justify-center transition-all tooltip"
+                                                    title="Archive">
+                                                    <i class="fas fa-box-archive text-xs"></i>
                                                 </button>
                                             </form>
                                         </div>
@@ -786,12 +862,83 @@
                     </table>
                 </div>
 
+                <!-- ARCHIVED PAYMENT METHODS -->
+                @if($archivedPaymentMethods->count() > 0)
+                    <div class="mt-12 pt-8 border-t border-gray-100 dark:border-gray-800">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center">
+                                <i class="fas fa-box-archive text-sm"></i>
+                            </div>
+                            <h4 class="font-bold text-gray-900 dark:text-white">Archived Payment Methods</h4>
+                            <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 text-[10px] font-bold rounded-md uppercase tracking-tighter">{{ $archivedPaymentMethods->count() }} Hidden</span>
+                        </div>
+
+                        <div class="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead class="bg-gray-50/50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    <tr>
+                                        <th class="px-6 py-3 tracking-widest">Archived Method</th>
+                                        <th class="px-6 py-3 tracking-widest text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                    @foreach($archivedPaymentMethods as $apm)
+                                        <tr class="hover:bg-gray-50/30 dark:hover:bg-gray-700/20 transition-colors group">
+                                            <td class="px-6 py-4">
+                                                <div class="flex items-center gap-4">
+                                                    <div class="w-10 h-10 rounded-2xl bg-gray-50 dark:bg-gray-900/50 text-gray-400 flex items-center justify-center border border-gray-100 dark:border-gray-700 shrink-0">
+                                                        <i class="fas {{ $apm->icon ?? 'fa-money-bill' }} text-lg"></i>
+                                                    </div>
+                                                    <div>
+                                                        <div class="font-bold text-gray-900 dark:text-white text-base leading-none mb-1">{{ $apm->name }}</div>
+                                                        <div class="text-xs font-medium text-gray-400 dark:text-gray-500">Archived on {{ $apm->deleted_at->format('M d, Y') }}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 text-right">
+                                                <div class="flex items-center justify-end gap-2">
+                                                    <form action="{{ route('system-settings.restore-payment-method', $apm->id) }}" method="POST" class="inline-block"
+                                                        onsubmit="event.preventDefault(); showConfirm('Restore Payment Method', 'Restore &quot;{{ addslashes($apm->name) }}&quot; to active payment methods?', 'bg-green-600 hover:bg-green-700', () => this.submit(), 'Restore')">
+                                                        @csrf
+                                                        <button type="submit" 
+                                                            class="w-8 h-8 rounded-lg bg-green-600 hover:bg-green-700 text-white shadow-sm flex items-center justify-center transition-all tooltip"
+                                                            title="Restore">
+                                                            <i class="fas fa-rotate-left text-xs"></i>
+                                                        </button>
+                                                    </form>
+
+                                                    <form action="{{ route('system-settings.force-delete-payment-method', $apm->id) }}" method="POST" class="inline-block"
+                                                        onsubmit="event.preventDefault(); showConfirm('Permanently Delete Method', 'Are you sure? This payment method will be GONE FOREVER.', 'bg-red-600 hover:bg-red-700', () => this.submit(), 'Delete Permanently')">
+                                                        @csrf @method('DELETE')
+                                                        <button type="submit" 
+                                                            class="w-8 h-8 rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-sm flex items-center justify-center transition-all tooltip"
+                                                            title="Delete Permanently">
+                                                            <i class="fas fa-trash-alt text-xs"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
+            </div>
+
                 <!-- Add/Edit Payment Method Modal -->
                 <div x-show="pmModalOpen" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
                     <div class="fixed inset-0 bg-black/50 backdrop-blur-sm" @click="pmModalOpen = false"></div>
                     <div class="relative min-h-screen flex items-center justify-center p-4">
                         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-8 relative transform transition-all">
-                            <h3 class="font-bold text-lg mb-6 text-gray-800 dark:text-white" x-text="pmEditMode ? 'Edit Payment Method' : 'Add Payment Method'"></h3>
+                            <div class="flex items-center justify-between mb-8 pb-4 border-b border-gray-100 dark:border-gray-700">
+                                <h3 class="font-bold text-xl text-gray-900 dark:text-white" x-text="pmEditMode ? 'Edit Payment Method' : 'Add Payment Method'"></h3>
+                                <button type="button" @click="pmModalOpen = false"
+                                    class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
 
                             <form :action="pmEditMode ? '{{ url('system-settings/payment-methods') }}/' + pmMethod.id : '{{ route('system-settings.store-payment-method') }}'"
                                 method="POST" class="space-y-5">
@@ -802,7 +949,7 @@
                                 <div>
                                     <label class="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Method Name <span class="text-red-500">*</span></label>
                                     <input type="text" name="name" x-model="pmMethod.name" required placeholder="e.g. Cash, GCash, Maya"
-                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-gray-800 dark:text-white">
+                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-gray-900 dark:text-white">
                                 </div>
 
                                 <!-- Icon -->
@@ -830,7 +977,7 @@
                                 <div>
                                     <label class="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Sort Order</label>
                                     <input type="number" name="sort_order" x-model="pmMethod.sort_order" min="0"
-                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-gray-800 dark:text-white"
+                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-gray-900 dark:text-white"
                                         placeholder="0 = first">
                                     <p class="text-xs text-gray-400 mt-1">Lower number = appears first in the list.</p>
                                 </div>
@@ -871,8 +1018,14 @@
         <div class="relative min-h-screen flex items-center justify-center p-4">
             <div
                 class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-3xl p-8 relative transform transition-all">
-                <h3 class="font-bold text-lg mb-4 text-gray-800 dark:text-white"
-                    x-text="editMode ? 'Edit Service' : 'New Service'"></h3>
+                <div class="flex items-center justify-between mb-8 pb-4 border-b border-gray-100 dark:border-gray-700">
+                    <h3 class="font-bold text-xl text-gray-900 dark:text-white"
+                        x-text="editMode ? 'Edit Service' : 'New Service'"></h3>
+                    <button type="button" @click="serviceModalOpen = false"
+                        class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
 
                 <form
                     :action="editMode ? '{{ route('system-settings.update-service', ['id' => ':id']) }}'.replace(':id', service.id) : '{{ route('system-settings.store-service') }}'"
@@ -951,21 +1104,18 @@
                         </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-bold text-gray-500 uppercase mb-2">Color</label>
-                        <div class="relative">
-                            <select name="color" x-model="service.color"
-                                class="dropdown-btn w-full">
-                                <option value="blue">Blue (Baptism)</option>
-                                <option value="red">Red (Confirmation)</option>
-                                <option value="pink">Pink (Wedding)</option>
-                                <option value="gray">Gray (Funeral)</option>
-                                <option value="green">Green (Anointing)</option>
-                                <option value="yellow">Yellow (Blessing)</option>
-                                <option value="purple">Purple (Default)</option>
-                                <option value="indigo">Indigo</option>
-                                <option value="teal">Teal</option>
-                            </select>
-                        </div>
+                            <label class="block text-sm font-bold text-gray-500 uppercase mb-2">Calendar Color</label>
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0 shadow-sm">
+                                    <input type="color" name="color" x-model="service.color"
+                                        class="w-14 h-14 -translate-x-2 -translate-y-2 cursor-pointer border-none outline-none bg-transparent"
+                                        title="Pick a color for this service">
+                                </div>
+                                <div class="flex-1">
+                                    <div class="text-xs font-mono font-bold text-gray-700 dark:text-gray-200" x-text="service.color || '#6366f1'"></div>
+                                    <div class="text-xs text-gray-400 mt-0.5">Used in calendar &amp; legend</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -983,7 +1133,7 @@
                                         <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-primary flex items-center justify-center border border-blue-100 dark:border-blue-800/30">
                                             <i class="fas {{ $pm->icon ?? 'fa-money-bill' }} text-sm"></i>
                                         </div>
-                                        <span class="font-bold text-gray-800 dark:text-gray-200 text-sm">{{ $pm->name }}</span>
+                                        <span class="font-bold text-gray-900 dark:text-gray-200 text-sm">{{ $pm->name }}</span>
                                     </div>
                                 </label>
                                 @endif
@@ -1036,7 +1186,7 @@
                             Custom Fields
                             <div class="flex gap-3">
                                 <button type="button" @click="$dispatch('open-preview', fields)"
-                                    class="text-xs text-gray-600 hover:text-gray-800 font-bold bg-gray-100 px-2 py-1 rounded">
+                                    class="text-xs text-gray-600 hover:text-gray-900 font-bold bg-gray-100 px-2 py-1 rounded">
                                     <i class="fas fa-eye mr-1"></i> Preview Form
                                 </button>
                                 <button type="button" @click="clearFields()"
@@ -1052,9 +1202,9 @@
 
                         <input type="hidden" name="custom_fields" :value="JSON.stringify(fields)">
 
-                        <div class="space-y-3 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                        <div class="space-y-3 max-h-80 overflow-y-auto custom-scrollbar pr-1">
                             <template x-for="(field, index) in fields" :key="field.id || index">
-                                <div class="flex items-start gap-2 bg-gray-50 dark:bg-gray-900 p-2 rounded-lg border border-gray-200 dark:border-gray-700 transition-all duration-200"
+                                <div class="flex flex-col bg-gray-50 dark:bg-gray-900 p-2 rounded-lg border border-gray-200 dark:border-gray-700 transition-all duration-200 relative"
                                     :class="{ 
                                         'opacity-50 dashed border-2 border-primary': draggingIndex === index, 
                                         'border-l-4 border-l-blue-500': field.origin === 'Baptism',
@@ -1062,13 +1212,14 @@
                                         'border-l-4 border-l-gray-500': field.origin === 'Burial',
                                         'border-l-4 border-l-purple-500': field.origin === 'Confirmation',
                                         'border-l-4 border-l-green-500': field.origin && !['Baptism', 'Wedding', 'Burial', 'Confirmation'].includes(field.origin)
-                                    }"
-                                    draggable="true" @dragstart="draggingIndex = index" @dragover.prevent
-                                    @drop="drop(index)" @dragend="draggingIndex = null">
-
-                                    <div class="mt-2 cursor-move text-gray-400 hover:text-gray-600 px-1">
-                                        <i class="fas fa-grip-vertical"></i>
-                                    </div>
+                                    }">
+                                    
+                                    <div class="flex items-start gap-2 w-full">
+                                        <div class="mt-2 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 px-1 shrink-0"
+                                            draggable="true" @dragstart="draggingIndex = index" @dragover.prevent
+                                            @drop="drop(index)" @dragend="draggingIndex = null">
+                                            <i class="fas fa-grip-vertical"></i>
+                                        </div>
                                     <div class="grid grid-cols-2 gap-2 flex-1">
                                         <input type="text" x-model="field.label" placeholder="Field Label (e.g. Birth Date)"
                                             class="text-sm px-2 py-1 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
@@ -1095,6 +1246,15 @@
                                             <i class="fas fa-trash text-xs"></i>
                                         </button>
                                     </div>
+                                    </div>
+
+                                    <!-- Options for Select types -->
+                                    <div x-show="field.type === 'select'" class="mt-2 ml-7 bg-blue-50/50 dark:bg-blue-900/10 p-2 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                                        <label class="block text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1 px-1">Dropdown Options (Comma separated)</label>
+                                        <input type="text" x-model="field.options" 
+                                            placeholder="e.g. Option 1, Option 2, Option 3"
+                                            class="w-full text-xs px-2 py-1.5 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-800 rounded focus:ring-2 focus:ring-blue-500/20">
+                                    </div>
                                 </div>
                             </template>
                             <div x-show="fields.length === 0"
@@ -1120,12 +1280,19 @@
             <div class="relative min-h-screen flex items-center justify-center p-4">
                 <div
                     class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-6 relative transform transition-all animate-fade-in-up">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="font-bold text-xl text-gray-900 dark:text-white">Apply Preset?</h3>
+                        <button type="button" @click="confirmModalOpen = false"
+                            class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                     <div class="text-center mb-6">
                         <div
                             class="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-4 text-primary">
                             <i class="fas fa-question text-3xl"></i>
                         </div>
-                        <h3 class="font-bold text-xl text-gray-800 dark:text-white mb-2">Apply Preset?</h3>
+                        <h3 class="font-bold text-xl text-gray-900 dark:text-white mb-2">Apply Preset?</h3>
                         <p class="text-sm text-gray-500 dark:text-gray-400">
                             This will append standard fields to your current list. This action cannot be undone
                             automatically.
@@ -1194,7 +1361,7 @@
                                 <template x-for="(field, index) in fields" :key="index">
                                     <div :class="
                                                     (field.label.toLowerCase().includes('suffix')) ? 'col-span-12 md:col-span-2' :
-                                                    (['first name', 'given name'].some(n => field.label.toLowerCase().includes(n))) ? 'col-span-12 md:col-span-4' :
+                                                    (['first name', 'given name'].some(n => field.label.toLowerCase().includes(n))) ? 'col-span-12 md:col-span-4 md:col-start-1' :
                                                     (['middle name', 'maiden name', 'last name', 'surname'].some(n => field.label.toLowerCase().includes(n))) ? 'col-span-12 md:col-span-3' :
                                                     (['textarea', 'header'].includes(field.type)) ? 'col-span-12' : 
                                                     'col-span-12 md:col-span-6'
@@ -1284,7 +1451,13 @@
             <div class="relative min-h-screen flex items-center justify-center p-4">
                 <div
                     class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-6 relative animate-fade-in-up">
-                    <h3 class="font-bold text-lg text-gray-800 dark:text-white mb-4">Save Preset</h3>
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="font-bold text-lg text-gray-900 dark:text-white">Save Preset</h3>
+                        <button type="button" @click="savePresetModalOpen = false"
+                            class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                     <div class="mb-4">
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Preset Name</label>
                         <input type="text" x-model="newPresetName"
@@ -1310,12 +1483,16 @@
             <div class="relative min-h-screen flex items-center justify-center p-4">
                 <div
                     class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-6 relative animate-fade-in-up text-center">
+                    <button type="button" @click="notificationModalOpen = false"
+                        class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all z-10">
+                        <i class="fas fa-times"></i>
+                    </button>
                     <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
                         :class="notificationType === 'success' ? 'bg-green-100 text-green-600' : (notificationType === 'error' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600')">
                         <i class="fas text-2xl"
                             :class="notificationType === 'success' ? 'fa-check' : (notificationType === 'error' ? 'fa-exclamation-triangle' : 'fa-info')"></i>
                     </div>
-                    <h3 class="font-bold text-lg text-gray-800 dark:text-white mb-2"
+                    <h3 class="font-bold text-lg text-gray-900 dark:text-white mb-2"
                         x-text="notificationType === 'success' ? 'Tagumpay!' : (notificationType === 'error' ? 'May Error' : 'Impormasyon')">
                     </h3>
                     <p class="text-sm text-gray-600 dark:text-gray-300 mb-6" x-text="notificationMessage"></p>
@@ -1379,7 +1556,7 @@ document.addEventListener('alpine:init', () => {
 
         serviceModalOpen: false,
         editMode: false,
-        service: {},
+        service: { payment_methods: [] },
         requirements: [],
         fields: [],
         confirmModalOpen: false,
@@ -1396,13 +1573,34 @@ document.addEventListener('alpine:init', () => {
 
         openServiceModal(isEdit, serviceData) {
             this.editMode = isEdit;
-            this.service = serviceData || {};
-            // Ensure payment_methods is an array of strings so checkboxes match
-            if (this.service.payment_methods) {
-                this.service.payment_methods = this.service.payment_methods.map(String);
-            } else {
-                this.service.payment_methods = [];
+            
+            // Normalize service data
+            const baseService = {
+                id: null,
+                name: '',
+                fee: 0,
+                icon: 'fa-church',
+                color: '#6366f1',
+                payment_methods: [],
+                requirements: [],
+                custom_fields: []
+            };
+
+            this.service = { ...baseService, ...(serviceData || {}) };
+            
+            // Robust normalization for payment_methods array
+            let pms = this.service.payment_methods;
+            if (!pms) {
+                pms = [];
+            } else if (typeof pms === 'string') {
+                try {
+                    pms = JSON.parse(pms);
+                } catch(e) {
+                    pms = pms.split(',').map(s => s.trim()).filter(Boolean);
+                }
             }
+            this.service.payment_methods = Array.isArray(pms) ? pms.map(String) : [];
+
             this.initRequirements();
             this.initFields();
             this.serviceModalOpen = true;
@@ -1572,21 +1770,42 @@ document.addEventListener('alpine:init', () => {
                     { label: 'Godparents', type: 'textarea', required: true, origin: 'Baptism' }
                 ],
                 'Wedding': [
+                    { label: "Groom's Details", type: 'header', origin: 'Wedding' },
                     { label: "Groom's First Name", type: 'text', required: true, origin: 'Wedding' },
-                    { label: "Groom's Middle Name", type: 'text', required: false, origin: 'Wedding' },
+                    { label: "Groom's Middle Name", type: 'text', required: true, origin: 'Wedding' },
                     { label: "Groom's Last Name", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Groom's Suffix", type: 'text', required: false, origin: 'Wedding' },
+                    { label: "Groom's Civil Status", type: 'select', options: ['Single', 'Widowed', 'Annulled', 'Separated'], required: true, origin: 'Wedding' },
                     { label: "Groom's Date of Birth", type: 'date', required: true, origin: 'Wedding' },
                     { label: "Groom's Place of Birth", type: 'text', required: true, origin: 'Wedding' },
-                    { label: "Groom's Civil Status", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Bride's Details", type: 'header', origin: 'Wedding' },
                     { label: "Bride's First Name", type: 'text', required: true, origin: 'Wedding' },
-                    { label: "Bride's Middle Name", type: 'text', required: false, origin: 'Wedding' },
+                    { label: "Bride's Middle Name", type: 'text', required: true, origin: 'Wedding' },
                     { label: "Bride's Last Name", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Bride's Suffix", type: 'text', required: false, origin: 'Wedding' },
+                    { label: "Bride's Civil Status", type: 'select', options: ['Single', 'Widowed', 'Annulled', 'Separated'], required: true, origin: 'Wedding' },
                     { label: "Bride's Date of Birth", type: 'date', required: true, origin: 'Wedding' },
                     { label: "Bride's Place of Birth", type: 'text', required: true, origin: 'Wedding' },
-                    { label: "Bride's Civil Status", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Parental Information", type: 'header', origin: 'Wedding' },
+                    { label: "Groom's Father's First Name", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Groom's Father's Middle Name", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Groom's Father's Last Name", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Groom's Father's Suffix", type: 'text', required: false, origin: 'Wedding' },
+                    { label: "Groom's Mother's First Name", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Groom's Mother's Middle Name (Maiden)", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Groom's Mother's Last Name (Maiden)", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Bride's Father's First Name", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Bride's Father's Middle Name", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Bride's Father's Last Name", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Bride's Father's Suffix", type: 'text', required: false, origin: 'Wedding' },
+                    { label: "Bride's Mother's First Name", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Bride's Mother's Middle Name (Maiden)", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Bride's Mother's Last Name (Maiden)", type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Marriage License Details", type: 'header', origin: 'Wedding' },
                     { label: 'Marriage License No.', type: 'text', required: true, origin: 'Wedding' },
                     { label: 'Date of Marriage License', type: 'date', required: true, origin: 'Wedding' },
                     { label: 'Issuing City/Municipality', type: 'text', required: true, origin: 'Wedding' },
+                    { label: "Sponsors & Others", type: 'header', origin: 'Wedding' },
                     { label: 'Principal Sponsors (Ninongs & Ninangs)', type: 'textarea', required: true, origin: 'Wedding' },
                     { label: 'Type of Wedding', type: 'text', required: false, origin: 'Wedding' },
                 ],
@@ -1653,7 +1872,18 @@ document.addEventListener('alpine:init', () => {
             this.selectedPriest = priest;
             
             // Populate form with existing data or defaults
-            this.formData.working_days = priest.working_days || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            // Ensure working_days is always an array
+            let days = priest.working_days;
+            if (!days) {
+                days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            } else if (typeof days === 'string') {
+                try {
+                    days = JSON.parse(days);
+                } catch(e) {
+                    days = days.split(',').map(s => s.trim()).filter(Boolean);
+                }
+            }
+            this.formData.working_days = Array.isArray(days) ? days : [];
             
             this.formData.working_hours = priest.working_hours || { start: '08:00', end: '17:00' };
             

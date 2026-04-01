@@ -35,10 +35,9 @@
                                                                                         }
                                                                 }">
 
-        <div
-            class="flex flex-col bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden search-results-container relative" x-data="tableSearch()" @click="handlePagination">
+        <div x-data="tableSearch()">
             <div
-                class="p-6 border-b border-gray-100 dark:border-gray-700 flex flex-col md:flex-row justify-between items-center gap-4 bg-gray-50 dark:bg-gray-800 shrink-0">
+                class="p-6 bg-gray-50 dark:bg-gray-800 rounded-t-3xl border border-gray-100 dark:border-gray-800 border-b-0 flex flex-col md:flex-row justify-between items-center gap-4 shrink-0 relative z-30 shadow-sm">
                 <div class="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
                     <div class="flex bg-gray-200 dark:bg-gray-700 p-1 rounded-xl">
                         <a href="{{ route('users', ['tab' => 'active']) }}"
@@ -69,13 +68,14 @@
                 @endif
             </div>
 
-            <div class="overflow-y-auto custom-scrollbar">
+            <div class="bg-white dark:bg-gray-800 rounded-b-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden search-results-container relative flex flex-col" @click="handlePagination">
+                <div class="overflow-y-auto custom-scrollbar">
                 @if($users->isEmpty())
                     <div class="flex flex-col items-center justify-center h-64 text-center">
                         <div class="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
                             <i class="fas fa-users-slash text-gray-400 text-2xl"></i>
                         </div>
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-white">No users found</h3>
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white">No users found</h3>
                         <p class="text-sm text-gray-500">There are no {{ $tab }} users at the moment.</p>
                     </div>
                 @else
@@ -104,8 +104,8 @@
                                                 </div>
                                             </div>
                                             <div>
-                                                <div class="font-bold text-gray-800 dark:text-gray-200">{{ $u->name }}</div>
-                                                <div class="text-sm text-gray-500">{{ $u->email }}</div>
+                                                <div class="font-bold text-gray-900 dark:text-white text-base leading-snug">{{ $u->name }}</div>
+                                                <div class="text-xs text-gray-500 font-medium">{{ $u->email }}</div>
                                             </div>
                                         </div>
                                     </td>
@@ -205,7 +205,7 @@
                 <div
                     class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg p-6 relative animate-fade-in-up">
                     <div class="flex justify-between items-center mb-6">
-                        <h3 class="font-bold text-xl text-gray-800 dark:text-white"
+                        <h3 class="font-bold text-xl text-gray-900 dark:text-white"
                             x-text="editMode ? 'Edit Account' : 'Create New Account'"></h3>
                         <button @click="userModalOpen = false" class="text-gray-400 hover:text-gray-600"><i
                                 class="fas fa-times"></i></button>
@@ -245,12 +245,18 @@
                         <div class="relative">
                             <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Role</label>
                             <select name="role" x-model="user.role" required
+                                :disabled="editMode && user.role === 'Admin'"
+                                :class="editMode && user.role === 'Admin' ? 'bg-gray-100 dark:bg-gray-700 opacity-70 cursor-not-allowed' : ''"
                                 class="dropdown-btn w-full">
                                 <option value="" disabled selected>Select Role</option>
                                 <template x-for="r in roles">
                                     <option :value="r.name" x-text="r.name" :selected="user.role == r.name"></option>
                                 </template>
                             </select>
+                            {{-- Add hidden input for role when disabled to satisfy validation --}}
+                            <template x-if="editMode && user.role === 'Admin'">
+                                <input type="hidden" name="role" :value="user.role">
+                            </template>
                         </div>
 
                         <div x-show="user.role === 'Priest'" x-transition class="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700">
@@ -260,48 +266,12 @@
                                     class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
                             </div>
 
-                            <!-- Schedule Settings -->
-                            <div class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700 space-y-4">
-                                <h4 class="font-bold text-sm text-gray-800 dark:text-gray-200"><i class="fas fa-calendar-alt text-blue-500 mr-2"></i>Availability Settings</h4>
-                                
-                                <div>
-                                     <label class="block text-sm font-bold text-gray-500 uppercase mb-2">Working Days</label>
-                                    <div class="flex flex-wrap gap-2">
-                                        <template x-for="day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']" :key="day">
-                                            <label class="flex items-center gap-2 cursor-pointer bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-400 transition-colors">
-                                                <input type="checkbox" name="working_days[]" :value="day" x-model="user.working_days" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="day.substring(0, 3)"></span>
-                                            </label>
-                                        </template>
-                                    </div>
-                                    <p class="text-xs text-gray-400 mt-1">Select the days this priest is available for services.</p>
-                                </div>
 
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                         <label class="block text-sm font-bold text-gray-500 uppercase mb-2">Start Time</label>
-                                        <input type="time" name="working_hours[start]" x-model="user.working_hours.start"
-                                            class="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
-                                    </div>
-                                    <div>
-                                         <label class="block text-sm font-bold text-gray-500 uppercase mb-2">End Time</label>
-                                        <input type="time" name="working_hours[end]" x-model="user.working_hours.end"
-                                            class="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
-                                    </div>
-                                </div>
-
-                                <div>
-                                     <label class="block text-sm font-bold text-gray-500 uppercase mb-2">Max Capacity (Services / Day)</label>
-                                    <input type="number" name="max_services_per_day" x-model="user.max_services_per_day" min="1"
-                                        class="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
-                                    <p class="text-xs text-gray-400 mt-1">The maximum number of services this priest can accommodate in one day.</p>
-                                </div>
-                            </div>
                         </div>
 
-                        <div x-data="{ showPw: false }">
+                        <div x-show="!editMode" x-data="{ showPw: false }">
                             <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                <span x-text="editMode ? 'New Password (Optional)' : 'Password'"></span>
+                                <span>Password</span>
                             </label>
                             <div class="relative">
                                 <input :type="showPw ? 'text' : 'password'" name="password" :required="!editMode"
@@ -322,6 +292,8 @@
                         </div>
                     </form>
                 </div>
+            </div>
+        </div>
             </div>
         </div>
     </div>

@@ -8,6 +8,9 @@ use App\Models\Role;
 use App\Helpers\AuditLogger;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use App\Mail\UserEmailChanged;
 
 class AccessControlController extends Controller
 {
@@ -27,7 +30,7 @@ class AccessControlController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "{$search}%") // Only match starting substring to prevent catching '.com' domains
                   ->orWhere('role', 'like', "%{$search}%");
             });
         }
@@ -66,6 +69,7 @@ class AccessControlController extends Controller
     public function update(Request $request, $id)
     {
         $user = User::findOrFail($id);
+        $oldEmail = $user->email;
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -89,6 +93,16 @@ class AccessControlController extends Controller
         $validated['modules'] = $selectedRole ? $selectedRole->modules : [];
 
         $user->update($validated);
+
+        // Security Alert: Notify old email if changed
+        if ($oldEmail !== $validated['email']) {
+            try {
+                Mail::to($oldEmail)->send(new UserEmailChanged($user, $oldEmail, $validated['email']));
+            } catch (\Exception $e) {
+                Log::error("Failed to send email change notification to {$oldEmail}: " . $e->getMessage());
+            }
+        }
+
         AuditLogger::log('Update User', 'Updated user: ' . $validated['name']);
 
         return redirect()->route('users')->with('success', 'User updated successfully.');

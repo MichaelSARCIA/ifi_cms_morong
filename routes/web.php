@@ -41,9 +41,12 @@ Route::middleware(['auth'])->group(function () {
 
     // 1.5 Service Requests
     Route::middleware(['module:service_requests'])->group(function () {
+        Route::get('/service-requests/check-availability', [App\Http\Controllers\ServiceRequestController::class, 'checkAvailability'])->name('service-requests.check-availability');
         Route::resource('service-requests', App\Http\Controllers\ServiceRequestController::class);
         Route::get('/api/priest-schedule/{priest}', [App\Http\Controllers\PriestScheduleController::class, 'getPriestSchedule'])->name('api.priest-schedule.get');
     });
+
+    Route::get('/api/services/{id}', [App\Http\Controllers\SystemSettingController::class, 'getService'])->name('api.services.get');
 
     // 2. System Roles
     Route::middleware(['module:system_roles'])->group(function () {
@@ -116,6 +119,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/services', [App\Http\Controllers\SystemSettingController::class, 'storeService'])->name('store-service');
         Route::put('/services/{id}', [App\Http\Controllers\SystemSettingController::class, 'updateService'])->name('update-service');
         Route::delete('/services/{id}', [App\Http\Controllers\SystemSettingController::class, 'destroyService'])->name('destroy-service');
+        Route::post('/services/{id}/restore', [App\Http\Controllers\SystemSettingController::class, 'restoreService'])->name('restore-service');
+        Route::delete('/services/{id}/force', [App\Http\Controllers\SystemSettingController::class, 'forceDeleteService'])->name('force-delete-service');
 
         // Database
         Route::get('/backup', [App\Http\Controllers\SystemSettingController::class, 'backupDatabase'])->name('backup');
@@ -130,6 +135,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/payment-methods', [App\Http\Controllers\SystemSettingController::class, 'storePaymentMethod'])->name('store-payment-method');
         Route::put('/payment-methods/{id}', [App\Http\Controllers\SystemSettingController::class, 'updatePaymentMethod'])->name('update-payment-method');
         Route::delete('/payment-methods/{id}', [App\Http\Controllers\SystemSettingController::class, 'destroyPaymentMethod'])->name('destroy-payment-method');
+        Route::post('/payment-methods/{id}/restore', [App\Http\Controllers\SystemSettingController::class, 'restorePaymentMethod'])->name('restore-payment-method');
+        Route::delete('/payment-methods/{id}/force', [App\Http\Controllers\SystemSettingController::class, 'forceDeletePaymentMethod'])->name('force-delete-payment-method');
         Route::post('/payment-methods/{id}/toggle', [App\Http\Controllers\SystemSettingController::class, 'togglePaymentMethod'])->name('toggle-payment-method');
     });
 
@@ -137,6 +144,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/profile', [App\Http\Controllers\ProfileController::class, 'index'])->name('profile');
     Route::post('/profile/photo', [App\Http\Controllers\ProfileController::class, 'updateProfile'])->name('profile.update-photo');
     Route::post('/profile/account', [App\Http\Controllers\ProfileController::class, 'updateAccount'])->name('profile.update-account');
+    Route::post('/profile/photo/clear', [App\Http\Controllers\ProfileController::class, 'clearPhoto'])->name('profile.clear-photo');
 
     // Notifications
     Route::get('/notifications', [App\Http\Controllers\AdminController::class, 'getNotifications'])->name('notifications');

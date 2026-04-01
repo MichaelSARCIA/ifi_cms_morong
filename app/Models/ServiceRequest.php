@@ -56,6 +56,17 @@ class ServiceRequest extends Model
         $ln = trim($this->last_name ?? '');
         $sf = trim($this->suffix   ?? '');
 
+        // Fallback to custom_data for suffix if not found in root column
+        if (empty($sf)) {
+            $data = $this->custom_data;
+            if (is_string($data)) {
+                $data = json_decode($data, true) ?? [];
+            }
+            if (is_array($data) && !empty($data['suffix'])) {
+                $sf = trim($data['suffix']);
+            }
+        }
+
         // Standard name construction
         $parts = [];
         if (!empty($fn)) $parts[] = $fn;

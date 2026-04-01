@@ -66,7 +66,7 @@
                         <div>
                             <p class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">For Priest Review</p>
                             <h3
-                                class="text-3xl font-extrabold text-gray-800 dark:text-white group-hover:text-amber-600 transition-colors">
+                                class="text-3xl font-extrabold text-gray-900 dark:text-white group-hover:text-amber-600 transition-colors">
                                 {{ $data['pending_requests_count'] }}
                             </h3>
                             <p class="text-[15px] text-gray-600 dark:text-gray-300 mt-1 font-medium italic">Awaiting Review</p>
@@ -87,7 +87,7 @@
                         <div>
                             <p class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Total Services</p>
                             <h3
-                                class="text-3xl font-extrabold text-gray-800 dark:text-white group-hover:text-indigo-600 transition-colors">
+                                class="text-3xl font-extrabold text-gray-900 dark:text-white group-hover:text-indigo-600 transition-colors">
                                 {{ count($data['total_services_list']) }}
                             </h3>
                             <p class="text-[15px] text-gray-600 dark:text-gray-300 mt-1 font-medium italic">Available Services</p>
@@ -108,7 +108,7 @@
                         <div>
                             <p class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Collections</p>
                             <h3
-                                class="text-3xl font-extrabold text-gray-800 dark:text-white group-hover:text-emerald-600 transition-colors">
+                                class="text-3xl font-extrabold text-gray-900 dark:text-white group-hover:text-emerald-600 transition-colors">
                                 {{ $data['collection_frequency'] }}
                             </h3>
                             <p class="text-[15px] text-gray-600 dark:text-gray-300 mt-1 font-medium italic">This Year</p>
@@ -129,7 +129,7 @@
                         <div>
                             <p class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Donations</p>
                             <h3
-                                class="text-3xl font-extrabold text-gray-800 dark:text-white group-hover:text-sky-600 transition-colors">
+                                class="text-3xl font-extrabold text-gray-900 dark:text-white group-hover:text-sky-600 transition-colors">
                                 {{ $data['donation_frequency'] }}
                             </h3>
                             <p class="text-[15px] text-gray-600 dark:text-gray-300 mt-1 font-medium italic">This Year</p>
@@ -244,7 +244,7 @@
                     <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/60">
                         <div class="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
                             <div>
-                                <h3 class="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2">
+                                <h3 class="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2">
                                     <span class="inline-flex items-center justify-center w-8 h-8 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-lg">
                                         <i class="fas fa-tasks text-sm"></i>
                                     </span>
@@ -266,7 +266,7 @@
                                     <i class="fas fa-search text-xs"></i>
                                 </span>
                                 <input type="text" x-model="search" placeholder="Search by name or service type…"
-                                    class="w-full pl-8 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition-colors">
+                                    class="w-full pl-8 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition-colors">
                             </div>
                             {{-- Type Filter --}}
                             <div class="relative">
@@ -1097,206 +1097,7 @@
             });
         </script>
 
-    <!-- Details Modal -->
-    <div id="detailsModal" class="hidden fixed inset-0 z-50 overflow-y-auto"
-        style="background-color: rgba(0,0,0,0.5);">
-        <div class="relative min-h-screen flex items-center justify-center p-4 backdrop-blur-sm">
-        <div
-            class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl p-6 border border-gray-100 dark:border-gray-700 relative animate-fade-in-up">
-
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="font-bold text-xl text-gray-800 dark:text-white flex items-center gap-2">
-                    <i class="fas fa-info-circle text-blue-500"></i> Service Details
-                </h3>
-                <button type="button" onclick="closeDetailsModal()"
-                    class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-
-            <div class="space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl">
-                        <span class="block text-sm font-bold text-black dark:text-white uppercase mb-1">Service Type</span>
-                        <span class="font-bold text-gray-800 dark:text-white" id="detailServiceType"></span>
-                    </div>
-                    <div class="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl">
-                        <span class="block text-sm font-bold text-black dark:text-white uppercase mb-1">Service Status</span>
-                        <span class="font-bold text-gray-800 dark:text-white" id="detailStatus"></span>
-                        <span class="block text-xs text-gray-400 mt-1" id="detailStatusDate"></span>
-                    </div>
-                </div>
-                        @if(Auth::user()->role !== 'Priest')
-                <div class="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl flex items-center justify-between">
-                    <span class="text-sm font-bold text-black dark:text-white uppercase">Payment Status</span>
-                    <span id="detailPaymentStatus"></span>
-                </div>
-                @endif
-
-                <div>
-                    <span class="block text-sm font-bold text-black dark:text-white uppercase mb-1">Applicant Name</span>
-                    <span class="font-medium text-gray-800 dark:text-white" id="detailName"></span>
-                </div>
-
-                <div>
-                    <span class="block text-sm font-bold text-black dark:text-white uppercase mb-1">Scheduled Date</span>
-                    <span class="font-medium text-gray-800 dark:text-white" id="detailDate"></span>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <span class="block text-sm font-bold text-black dark:text-white uppercase mb-1">Contact No.</span>
-                        <span class="font-medium text-gray-800 dark:text-white" id="detailContact"></span>
-                    </div>
-                    <div>
-                        <span class="block text-sm font-bold text-black dark:text-white uppercase mb-1">Email</span>
-                        <span class="font-medium text-gray-800 dark:text-white" id="detailEmail"></span>
-                    </div>
-                </div>
-
-                <div>
-                    <span class="block text-sm font-bold text-black dark:text-white uppercase mb-2">Requirements Submitted</span>
-                    <div class="flex flex-wrap gap-2" id="detailRequirements"></div>
-                </div>
-
-                <div>
-                    <span class="block text-sm font-bold text-black dark:text-white uppercase mb-1">Other Details</span>
-                    <p class="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700"
-                        id="detailDetails"></p>
-                </div>
-            </div>
-
-            <div class="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700 mt-6">
-                <button type="button" onclick="closeDetailsModal()"
-                    class="px-6 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold transition-all text-sm">
-                    Close
-                </button>
-            </div>
-        </div>
-        </div>
-    </div>
-
-    <script>
-        window.openDetailsModal = function(request) {
-            try {
-                // Helper functions for badges
-                const serviceColorsMap = {!! json_encode(\App\Helpers\ServiceHelper::getServiceColorMap()) !!};
-                const getServiceBadgeClass = (serviceType) => {
-                    const type = (serviceType || '').toLowerCase();
-                    if (serviceColorsMap[type]) return serviceColorsMap[type];
-                    
-                    for (const [key, cls] of Object.entries(serviceColorsMap)) {
-                        if (type.includes(key)) return cls;
-                    }
-
-                    return 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700';
-                };
-
-                const getStatusBadgeClass = (status) => {
-                    const st = (status || '').toLowerCase();
-                    if (st.includes('pending')) return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800/40';
-                    if (st === 'for priest review') return 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-800/40';
-                    if (st === 'for payment') return 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800/40';
-                    if (st === 'approved') return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800/40';
-                    if (st === 'completed') return 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800/40';
-                    if (st === 'cancelled' || st === 'declined' || st === 'rejected') return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/40';
-                    return 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700';
-                };
-
-                // Populate details with pill badges
-                const sType = request.service_type || 'N/A';
-                const sStatus = request.status || 'N/A';
-                document.getElementById('detailServiceType').innerHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-base mt-1 font-bold border ${getServiceBadgeClass(sType)}">${sType}</span>`;
-                document.getElementById('detailStatus').innerHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-base mt-1 font-bold border ${getStatusBadgeClass(sStatus)}">${sStatus}</span>`;
-
-                // Show date/time when status is Completed
-                const statusDateEl = document.getElementById('detailStatusDate');
-                if (statusDateEl && request.updated_at && (request.status === 'Completed' || request.status === 'Approved')) {
-                    const d = new Date(request.updated_at);
-                    const formatted = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                        + ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                    statusDateEl.textContent = (request.status === 'Completed' ? 'Completed on: ' : 'Approved on: ') + formatted;
-                } else if (statusDateEl) {
-                    statusDateEl.textContent = '';
-                }
-
-                // Handle both unified applicant_name (from Dashboard view) and raw columns
-                let name = request.applicant_name || '';
-                if (!name && (request.first_name || request.last_name)) {
-                    name = [request.first_name, request.middle_name, request.last_name, request.suffix].filter(Boolean).join(' ');
-                }
-                document.getElementById('detailName').textContent = name || 'N/A';
-
-                // Format Date safely
-                let formattedDate = 'N/A';
-                if (request.scheduled_date) {
-                    // Extract just the YYYY-MM-DD part if it includes time
-                    const datePart = request.scheduled_date.split('T')[0];
-                    const date = new Date(datePart + 'T00:00:00');
-                    if (!isNaN(date.getTime())) {
-                        formattedDate = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                    }
-                }
-                
-                let timeStr = '';
-                if(request.scheduled_time) {
-                    try {
-                        timeStr = ' @ ' + new Date('1970-01-01T' + request.scheduled_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                    } catch(e) { timeStr = ' @ ' + request.scheduled_time; }
-                }
-
-                document.getElementById('detailDate').textContent = formattedDate + timeStr;
-
-                document.getElementById('detailContact').textContent = request.contact_number || 'N/A';
-                document.getElementById('detailEmail').textContent = request.email || 'N/A';
-                document.getElementById('detailDetails').textContent = request.details || 'None';
-
-                // Requirements
-                const reqList = document.getElementById('detailRequirements');
-                if (reqList) {
-                    reqList.innerHTML = '';
-                    let reqs = request.requirements;
-                    if (typeof reqs === 'string') {
-                        try { reqs = JSON.parse(reqs); } catch(e) { reqs = []; }
-                    }
-                    if (Array.isArray(reqs) && reqs.length > 0) {
-                        reqs.forEach(req => {
-                            const span = document.createElement('span');
-                            span.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-medium bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800';
-                            span.innerHTML = '<i class="fas fa-check-circle text-green-600 dark:text-green-500"></i> ' + req;
-                            reqList.appendChild(span);
-                        });
-                    } else {
-                        reqList.innerHTML = '<span class="text-gray-500 text-sm italic">No requirements submitted.</span>';
-                    }
-                }
-
-                // Payment Status Badge
-                const payEl = document.getElementById('detailPaymentStatus');
-                if (payEl) {
-                    const isPaid = request.payment_status === 'Paid';
-                    const isWaived = request.payment_status === 'Waived';
-                    
-                    if (isPaid) {
-                        payEl.innerHTML = '<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold bg-green-100 text-green-700 border border-green-200"><i class="fas fa-check-circle"></i> Paid</span>';
-                    } else if (isWaived) {
-                        payEl.innerHTML = '<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-700 border border-blue-200"><i class="fas fa-hand-holding-heart"></i> Waived</span>';
-                    } else {
-                        payEl.innerHTML = '<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200"><i class="fas fa-clock"></i> Unpaid — Awaiting Payment</span>';
-                    }
-                }
-
-                // Show modal
-                document.getElementById('detailsModal').classList.remove('hidden');
-            } catch (e) {
-                console.error("Error opening details modal:", e);
-            }
-        };
-
-        window.closeDetailsModal = function() {
-            document.getElementById('detailsModal').classList.add('hidden');
-        };
-    </script>
+    @include('partials.details_modal')
 
     @if(isset($data['upcoming_schedules']) && count($data['upcoming_schedules']) > 0)
         <!-- Universal Floating Schedules UI (Unified Dashboard Experience) -->

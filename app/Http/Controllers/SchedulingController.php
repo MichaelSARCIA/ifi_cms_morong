@@ -38,25 +38,37 @@ class SchedulingController extends Controller
     {
         $start = $request->query('start');
         $end = $request->query('end');
-        $type = $request->query('type');
+        $eventType = $request->query('event_type');
+        $serviceType = $request->query('service_type');
 
         // Parse dates to Y-m-d to ensure database compatibility and performance
         $startDate = $start ? substr($start, 0, 10) : null;
         $endDate = $end ? substr($end, 0, 10) : null;
 
         // 1. Fetch Manual Schedules
-        $scheduleQuery = Schedule::query();
+        $scheduleQuery = Schedule::query()->with(['priest' => function($q) {
+            $q->select('id', 'name');
+        }]);
+        
         if ($startDate && $endDate) {
             $scheduleQuery->whereBetween('start_datetime', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
         }
 
-        if ($type && $type !== 'All') {
-            $scheduleQuery->where('type', $type);
+        if ($eventType && $eventType !== 'All') {
+            $scheduleQuery->where('type', $eventType);
         }
 
         $scheduleQuery->whereIn('status', ['Scheduled', 'Approved']);
 
-        $manualEvents = $scheduleQuery->select(['id', 'title', 'start_datetime', 'end_datetime', 'type', 'description', 'status'])
+        // ROLE FILTERING AND PRIEST PARAM FILTERING
+        $user = auth()->user();
+        if ($user && $user->role === 'Priest') {
+            $scheduleQuery->where('priest_id', $user->id);
+        } else if ($request->filled('priest_id')) {
+            $scheduleQuery->where('priest_id', $request->priest_id);
+        }
+
+        $manualEvents = $scheduleQuery->select(['id', 'title', 'start_datetime', 'end_datetime', 'type', 'description', 'status', 'priest_id'])
             ->get()
             ->map(function ($event) {
                 return [
@@ -69,38 +81,38 @@ class SchedulingController extends Controller
                     'extendedProps' => [
                         'type' => $event->type,
                         'description' => e($event->description),
-                        'source' => 'manual'
+                        'source' => 'manual',
+                        'priest_id' => $event->priest_id,
+                        'priest_name' => $event->priest ? $event->priest->name : null
                     ]
                 ];
             });
 
         // 2. Fetch Service Requests (Approved, Completed, OR Paid)
-        // Select only necessary columns to improve performance
         $requestQuery = \App\Models\ServiceRequest::query()
-            ->select(['id', 'service_type', 'first_name', 'middle_name', 'last_name', 'fathers_name', 'mothers_name', 'contact_number', 'email', 'scheduled_date', 'scheduled_time', 'status', 'payment_status', 'details', 'requirements', 'priest_id']);
+            ->select(['id', 'service_type', 'first_name', 'middle_name', 'last_name', 'suffix', 'fathers_name', 'mothers_name', 'contact_number', 'email', 'scheduled_date', 'scheduled_time', 'status', 'payment_status', 'details', 'requirements', 'priest_id', 'custom_data']);
 
         if ($startDate && $endDate) {
             $requestQuery->whereBetween('scheduled_date', [$startDate, $endDate]);
         }
 
-        if ($type && $type !== 'All') {
-            $requestQuery->where('service_type', $type);
+        if ($serviceType && $serviceType !== 'All') {
+            $requestQuery->where('service_type', $serviceType);
         }
 
         // Include Paid requests regardless of main status (except cancelled), OR Approved
         $requestQuery->where(function ($q) {
             $q->whereIn('status', ['Approved'])
-                ->orWhere('payment_status', 'Paid');
+              ->orWhere(function($sub) {
+                  $sub->where('payment_status', 'Paid')
+                      ->where('status', '!=', 'Cancelled');
+              });
         });
 
-        // ROLE FILTERING AND PRIEST PARAM FILTERING
-        $user = auth()->user();
         if ($user && $user->role === 'Priest') {
             $requestQuery->where('priest_id', $user->id);
-            $scheduleQuery->where('priest_id', $user->id);
         } else if ($request->filled('priest_id')) {
             $requestQuery->where('priest_id', $request->priest_id);
-            $scheduleQuery->where('priest_id', $request->priest_id);
         }
 
         $serviceEvents = $requestQuery->get()->map(function ($req) {
@@ -118,12 +130,47 @@ class SchedulingController extends Controller
                 }
             }
 
+            // Parse custom_data for richer field values
+            $cd = [];
+            if (!empty($req->custom_data)) {
+                $cd = is_string($req->custom_data) ? json_decode($req->custom_data, true) : (array) $req->custom_data;
+                $cd = $cd ?? [];
+            }
+
+            // Helper: get value from custom_data by common key variants, skip N/A
+            $cdGet = function (array $keys) use ($cd) {
+                foreach ($keys as $key) {
+                    foreach ($cd as $k => $v) {
+                        if (strcasecmp(trim($k), $key) === 0 && !empty($v) && strtolower(trim($v)) !== 'n/a') {
+                            return $v;
+                        }
+                    }
+                }
+                return null;
+            };
+
+            // Full applicant name (include suffix if present)
+            $suffix = $req->suffix && strtolower(trim($req->suffix)) !== 'n/a' ? ' ' . trim($req->suffix) : '';
+            $applicantName = trim(
+                e($req->first_name) . ' ' .
+                ($req->middle_name ? e($req->middle_name) . ' ' : '') .
+                e($req->last_name) . $suffix
+            );
+
+            // Father: prefer custom_data, fallback to column
+            $fatherName = $cdGet(["Father's Name", "Father's First Name", "father_first_name", "father_name"])
+                ?? ($req->fathers_name && strtolower(trim($req->fathers_name)) !== 'n/a' ? $req->fathers_name : null);
+
+            // Mother: prefer custom_data, fallback to column
+            $motherName = $cdGet(["Mother's Name", "Mother's First Name", "mother_first_name", "mother_name"])
+                ?? ($req->mothers_name && strtolower(trim($req->mothers_name)) !== 'n/a' ? $req->mothers_name : null);
+
             $description = "<strong>Services:</strong> " . e($req->service_type) . "\n";
-            $description .= "<strong>Applicant:</strong> " . e($req->first_name) . " " . ($req->middle_name ? e($req->middle_name) . " " : "") . e($req->last_name) . "\n";
-            if ($req->fathers_name)
-                $description .= "<strong>Father:</strong> " . e($req->fathers_name) . "\n";
-            if ($req->mothers_name)
-                $description .= "<strong>Mother:</strong> " . e($req->mothers_name) . "\n";
+            $description .= "<strong>Applicant:</strong> " . $applicantName . "\n";
+            if ($fatherName)
+                $description .= "<strong>Father:</strong> " . e($fatherName) . "\n";
+            if ($motherName)
+                $description .= "<strong>Mother:</strong> " . e($motherName) . "\n";
             $description .= "<strong>Contact:</strong> " . e($req->contact_number) . "\n";
             $description .= "<strong>Email:</strong> " . e($req->email) . "\n";
             if (!empty($req->details)) {
@@ -160,34 +207,49 @@ class SchedulingController extends Controller
 
     private function getColorByType($type)
     {
+        // Cache the service type colors for the duration of the request
+        static $serviceColors = null;
+        if ($serviceColors === null) {
+            $serviceColors = \App\Models\ServiceType::pluck('color', 'name')->toArray();
+        }
+
+        // 1. Check if it's a dynamic service from the settings
+        if (isset($serviceColors[$type])) {
+            return $serviceColors[$type];
+        }
+
+        // 2. Fallback to hardcoded activity categories
         switch ($type) {
             case 'Mass':
-                return '#8b5cf6'; // violet
+                return '#dc2626'; // red
             case 'Special Mass':
-                return '#a855f7'; // purple
-            case 'Parish Meeting':
-                return '#3b82f6'; // blue
-            case 'Novena':
-                return '#6366f1'; // indigo
-            case 'Youth Activity':
-                return '#0ea5e9'; // sky
-            case 'Community Service':
-                return '#22c55e'; // green
-            case 'Other':
                 return '#f59e0b'; // amber
+            case 'Parish Meeting':
+                return '#0891b2'; // cyan
+            case 'Novena':
+                return '#84cc16'; // lime
+            case 'Youth Activity':
+                return '#f97316'; // orange
+            case 'Community Service':
+                return '#10b981'; // emerald
             
-            // Sacrament services
             case 'Baptism':
-                return '#3b82f6';
+                return '#3b82f6'; // blue
+            case 'Confirmation':
+                return '#a855f7'; // purple
             case 'Wedding':
-                return '#ec4899';
+                return '#ec4899'; // pink
+            case 'Funeral Mass':
             case 'Burial':
-                return '#6b7280';
+                return '#f43f5e'; // red-pink
+            case 'Wake':
+                return '#6366f1'; // indigo
             case 'Blessing':
-                return '#f59e0b';
+                return '#eab308'; // yellow
                 
+            case 'Other':
             default:
-                return '#3788d8';
+                return '#64748b'; // slate
         }
     }
 

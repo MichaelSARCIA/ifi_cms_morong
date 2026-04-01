@@ -27,11 +27,11 @@
         $customData = $service->filtered_custom_data;
         $groomName = $fullName;
         $brideName = strtoupper(trim(
-            ($customData['bride_first_name'] ?? $customData['Bride First Name'] ?? '') . ' ' .
-            ($customData['bride_middle_name'] ?? $customData['Bride Middle Name'] ?? '') . ' ' .
-            ($customData['bride_last_name'] ?? $customData['Bride Last Name'] ?? '')
+            ($customData['bride_first_name'] ?? $customData['brides_first_name'] ?? $customData['Bride First Name'] ?? '') . ' ' .
+            ($customData['bride_middle_name'] ?? $customData['brides_middle_name'] ?? $customData['Bride Middle Name'] ?? '') . ' ' .
+            ($customData['bride_last_name'] ?? $customData['brides_last_name'] ?? $customData['Bride Last Name'] ?? '')
         ));
-        if(!$brideName) $brideName = strtoupper($customData['bride_name'] ?? $customData["Bride's Name"] ?? '___________________________');
+        if(!$brideName) $brideName = strtoupper($customData['bride_name'] ?? $customData['brides_name'] ?? $customData["Bride's Name"] ?? '___________________________');
         $recipientName = $groomName . ' & ' . $brideName;
     } else {
         $recipientName = $fullName;

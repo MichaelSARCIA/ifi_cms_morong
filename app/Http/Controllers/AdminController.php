@@ -92,7 +92,7 @@ class AdminController extends Controller
             return redirect()->route('login');
         }
 
-        $perPage = $request->input('per_page', 15);
+        $perPage = 10;
         $notifications = auth()->user()->notifications()->paginate($perPage);
         
         // Map data to match the format used in the header dropdown if needed, 

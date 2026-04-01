@@ -18,28 +18,17 @@
     </div>
 
     <!-- TABLE -->
-    <div
-        class="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden search-results-container relative" x-data="tableSearch()" @click="handlePagination">
-        <!-- Removed blur loading state for instant feel -->
-        
+    <div x-data="tableSearch()">
         <!-- Filters -->
-        <div class="p-6 border-b border-gray-100 dark:border-gray-700">
+        <div class="p-6 bg-white dark:bg-gray-800 rounded-t-3xl border border-gray-100 dark:border-gray-700 border-b-0 shadow-sm relative z-20">
             <form action="{{ route('collections') }}" method="GET" class="flex flex-wrap items-center gap-4 w-full search-form" @submit.prevent="submitSearch">
-                <div class="flex items-center gap-2 mr-2">
-                    <label for="per_page_collections" class="text-xs font-bold text-gray-400 uppercase tracking-wider">Show</label>
-                    <select name="per_page" id="per_page_collections" @change="submitSearch"
-                        class="dropdown-btn w-20 px-3 py-1.5 h-10">
-                        @foreach([5, 10, 15, 20, 50] as $n)
-                            <option value="{{ $n }}" {{ request('per_page', 15) == $n ? 'selected' : '' }}>{{ $n }}</option>
-                        @endforeach
-                    </select>
-                </div>
+
 
                 <!-- Search Input -->
                 <div class="relative max-w-xs w-full lg:w-auto">
                     <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                     <input type="text" name="search" value="{{ request('search') }}" placeholder="Search source/remarks..."
-                        @input.debounce.300ms="submitSearch"
+                        @input.debounce.50ms="submitSearch"
                         class="w-full lg:w-56 pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-medium text-gray-700 dark:text-gray-300">
                 </div>
 
@@ -47,24 +36,26 @@
                     <select name="collection_type" @change="submitSearch"
                         class="dropdown-btn w-full lg:w-auto">
                         <option value="">All Collection Types</option>
-                        <option value="Collection" {{ request('collection_type') == 'Collection' ? 'selected' : '' }}>Collection</option>
+                        <option value="Sunday Collection" {{ request('collection_type') == 'Sunday Collection' ? 'selected' : '' }}>Sunday Collection</option>
                         <option value="Mass Offering" {{ request('collection_type') == 'Mass Offering' ? 'selected' : '' }}>Mass Offering</option>
                         <option value="Special Collection" {{ request('collection_type') == 'Special Collection' ? 'selected' : '' }}>Special Collection</option>
+                        <option value="Other" {{ request('collection_type') == 'Other' ? 'selected' : '' }}>Other</option>
                     </select>
                 </div>
 
                 <div class="flex items-center gap-2">
-                    @if(request()->anyFilled(['search', 'collection_type']))
-                        <a href="{{ route('collections') }}"
-                            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-medium transition-all px-2">
-                            <i class="fas fa-times-circle mr-1"></i>Clear
-                        </a>
+                    @if(request()->anyFilled(['collection_type']))
+                        <button type="button" @click="clearFilters()"
+                            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-bold transition-all px-2 flex items-center gap-1">
+                            <i class="fas fa-times-circle"></i>Clear
+                        </button>
                     @endif
                 </div>
             </form>
         </div>
 
-        <div class="overflow-x-auto">
+        <div class="bg-white dark:bg-gray-800 rounded-b-3xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden search-results-container relative" @click="handlePagination">
+            <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead
                     class="bg-gray-50/50 dark:bg-gray-700/30 text-sm font-bold text-gray-400 uppercase border-b border-gray-100 dark:border-gray-700">
@@ -78,20 +69,28 @@
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700/50">
                     @forelse ($collections as $row)
                         <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-700/20 transition-colors">
-                            <td class="px-6 py-4 text-sm font-bold text-gray-700 dark:text-gray-200">
+                            <td class="px-6 py-4 text-base font-bold text-gray-900 dark:text-white">
                                 {{ date('F d, Y', strtotime($row->date_received)) }}
                             </td>
                             <td class="px-6 py-4">
-                                <span
-                                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800">
-                                    <i class="fas fa-hand-holding-usd text-xs"></i>
-                                    {{ $row->type }}
+                                @php
+                                    $typeConfig = match($row->type) {
+                                        'Sunday Collection', 'Collection' => ['label' => 'Sunday Collection', 'icon' => 'fa-church',         'class' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800'],
+                                        'Mass Offering'                   => ['label' => 'Mass Offering',     'icon' => 'fa-hands-praying',   'class' => 'bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800'],
+                                        'Special Collection'              => ['label' => 'Special Collection', 'icon' => 'fa-star',            'class' => 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'],
+                                        'Other'                           => ['label' => 'Other',              'icon' => 'fa-th-list',         'class' => 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600'],
+                                        default                           => ['label' => $row->type,           'icon' => 'fa-hand-holding-usd','class' => 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800'],
+                                    };
+                                @endphp
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold {{ $typeConfig['class'] }}">
+                                    <i class="fas {{ $typeConfig['icon'] }} text-xs"></i>
+                                    {{ $typeConfig['label'] }}
                                 </span>
                             </td>
                             <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 italic">
                                 {{ $row->remarks }}
                             </td>
-                            <td class="px-6 py-4 text-right font-bold text-gray-800 dark:text-white">₱
+                            <td class="px-6 py-4 text-right font-bold text-lg text-gray-900 dark:text-white">₱
                                 {{ number_format($row->amount, 2) }}
                             </td>
                         </tr>
@@ -107,6 +106,8 @@
     <div class="mt-4 px-4 pb-4">
         {{ $collections->links() }}
     </div>
+        </div>
+    </div>
     </div>
 
     <!-- Modal -->
@@ -120,7 +121,7 @@
             </button>
 
             <div class="mb-6">
-                <h3 class="font-bold text-xl text-gray-800 dark:text-white flex items-center gap-2">
+                <h3 class="font-bold text-xl text-gray-900 dark:text-white flex items-center gap-2">
                     <i class="fas fa-plus-circle text-primary"></i> Record Collection
                 </h3>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter the details of the collection.</p>
@@ -136,9 +137,10 @@
                         <div class="relative group">
                             <select name="type"
                                 class="dropdown-btn w-full">
-                                <option value="Collection">Sunday Collection</option>
+                                <option value="Sunday Collection">Sunday Collection</option>
                                 <option value="Mass Offering">Mass Offering</option>
                                 <option value="Special Collection">Special Collection</option>
+                                <option value="Other">Other</option>
                             </select>
                         </div>
                     </div>

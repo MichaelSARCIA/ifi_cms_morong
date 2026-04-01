@@ -26,7 +26,7 @@ class RoleController extends Controller
         'system_settings_database' => '— Backup & Database',
         'system_roles' => 'System Roles',
         'user_accounts' => 'User Accounts',
-        'audit_trail' => 'Audit Trail'
+        'audit_trail' => 'Activity Logs'
     ];
 
     public function index()

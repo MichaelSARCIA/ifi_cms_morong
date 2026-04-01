@@ -50,20 +50,21 @@ class BackupDatabaseCommand extends Command
             mkdir(storage_path('app/backups'), 0755, true);
         }
 
-        $user = env('DB_USERNAME', 'root');
-        $pass = env('DB_PASSWORD', '');
-        $host = env('DB_HOST', '127.0.0.1');
-        $db = env('DB_DATABASE', 'ifi_cms_morong');
+        $user = config('database.connections.mysql.username');
+        $pass = config('database.connections.mysql.password');
+        $host = config('database.connections.mysql.host');
+        $db   = config('database.connections.mysql.database');
 
-        $passStr = empty($pass) ? "" : "--password=\"{$pass}\"";
+        $passStr = empty($pass) ? "" : "--password=\"" . addslashes($pass) . "\"";
 
-        $command = "mysqldump --user={$user} {$passStr} --host={$host} {$db} > " . escapeshellarg($path) . " 2>&1";
+        // Try standard path first
+        $command = "mysqldump --user=" . escapeshellarg($user) . " {$passStr} --host=" . escapeshellarg($host) . " " . escapeshellarg($db) . " > " . escapeshellarg($path) . " 2>&1";
         exec($command, $output, $result);
 
         if ($result !== 0) {
             $xamppPath = "C:\\xampp\\mysql\\bin\\mysqldump.exe";
             if (file_exists($xamppPath)) {
-                $command = "\"$xamppPath\" --user={$user} {$passStr} --host={$host} {$db} > " . escapeshellarg($path) . " 2>&1";
+                $command = "\"$xamppPath\" --user=" . escapeshellarg($user) . " {$passStr} --host=" . escapeshellarg($host) . " " . escapeshellarg($db) . " > " . escapeshellarg($path) . " 2>&1";
                 exec($command, $output, $result);
             }
         }

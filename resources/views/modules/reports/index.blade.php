@@ -124,12 +124,12 @@
                                 <tbody>
                                     @foreach($applicantList as $applicant)
                                     @php
-                                        $customData = is_string($applicant->custom_data) ? json_decode($applicant->custom_data, true) : ($applicant->custom_data ?? []);
-                                        $address = $customData['complete_address'] ?? 'N/A';
-                                        $age = $customData['age_date_of_birth'] ?? 'N/A';
-                                        $civilStatus = $customData['civil_status'] ?? 'N/A';
-                                        $gender = $customData['gender'] ?? 'N/A';
-                                        $email = $applicant->email ?? ($customData['email_address'] ?? 'N/A');
+                                        $customData = $applicant->filtered_custom_data;
+                                        $address = $customData['complete_address'] ?? '';
+                                        $age = $customData['age'] ?? ($customData['age_date_of_birth'] ?? '');
+                                        $civilStatus = $customData['civil_status'] ?? '';
+                                        $gender = $customData['gender'] ?? '';
+                                        $email = $applicant->email ?? ($customData['email_address'] ?? '');
                                     @endphp
                                     <tr class="border-b border-gray-200 hover:bg-gray-50">
                                         <td class="py-2 px-2 text-center font-bold text-gray-700">{{ $loop->iteration }}.</td>

@@ -13,15 +13,7 @@
             Recent Notifications
         </h2>
         <div class="flex gap-3 items-center">
-            <form action="{{ route('notifications.index') }}" method="GET" class="flex items-center gap-2 search-form shadow-none">
-                <label for="per_page_notif" class="text-xs font-bold text-gray-400 uppercase tracking-wider">Show</label>
-                <select name="per_page" id="per_page_notif" @change="submitSearch"
-                    class="dropdown-btn w-20 px-3 py-1.5 h-10">
-                    @foreach([5, 10, 15, 20, 50] as $n)
-                        <option value="{{ $n }}" {{ request('per_page', 15) == $n ? 'selected' : '' }}>{{ $n }}</option>
-                    @endforeach
-                </select>
-            </form>
+
             <form action="{{ route('notifications.read') }}" method="POST">
                 @csrf
                 <button type="submit" class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm">
@@ -32,7 +24,8 @@
     </div>
 
     <!-- Notifications List -->
-    <div class="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden search-results-container relative" x-data="tableSearch()" @click="handlePagination">
+    <div x-data="tableSearch()">
+        <div class="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden search-results-container relative" @click="handlePagination">
         @if($notifications->isEmpty())
             <div class="p-16 text-center">
                 <div class="w-24 h-24 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -88,6 +81,7 @@
                 </div>
             @endif
         @endif
+    </div>
     </div>
 </div>
 @endsection

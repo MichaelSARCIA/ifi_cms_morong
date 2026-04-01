@@ -29,6 +29,7 @@ class AuthController extends Controller
 
             // HARD BLOCK: Check if this user has an active session on ANOTHER device
             // We consider a session "active" if it was updated in the last 5 minutes.
+            /* 
             $activeSession = DB::table('sessions')
                 ->where('user_id', $user->id)
                 ->where('id', '!=', session()->getId())
@@ -45,6 +46,7 @@ class AuthController extends Controller
                     'email' => 'This account is already logged in on another device. Please log out from that device first.',
                 ])->withInput($request->only('email'));
             }
+            */
 
             $request->session()->regenerate();
 

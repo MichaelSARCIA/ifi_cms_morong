@@ -13,7 +13,6 @@ class SacramentController extends Controller
     {
         $query = \App\Models\ServiceRequest::query()
             ->whereIn('status', ['Approved', 'Completed'])
-            ->where('payment_status', 'Paid')
             ->with(['priest']);
 
         // Apply Search Filter (Applicant Name)
@@ -41,8 +40,10 @@ class SacramentController extends Controller
             }
         }
 
-        $perPage = $request->input('per_page', 15);
-        $sacraments = $query->orderBy('created_at', 'desc')->paginate($perPage)->withQueryString();
+        $perPage = 10;
+        $sacraments = $query->orderBy('updated_at', 'desc')
+                            ->paginate($perPage)
+                            ->withQueryString();
         
         // Fetch all service types for the filter dropdown
         $serviceTypes = \App\Models\ServiceType::pluck('name')->toArray();

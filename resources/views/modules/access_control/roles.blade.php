@@ -55,7 +55,7 @@
                                                 {{ substr($r->name, 0, 1) }}
                                             </div>
                                             <span
-                                                class="font-bold text-sm text-gray-800 dark:text-gray-200">{{ $r->name }}</span>
+                                                class="font-bold text-base text-gray-900 dark:text-white">{{ $r->name }}</span>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4">
@@ -114,7 +114,7 @@
                 <div
                     class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg p-6 relative animate-fade-in-up">
                     <div class="flex justify-between items-center mb-6">
-                        <h3 class="font-bold text-xl text-gray-800 dark:text-white"
+                        <h3 class="font-bold text-xl text-gray-900 dark:text-white"
                             x-text="editMode ? 'Edit Role' : 'Create New Role'"></h3>
                         <button @click="roleModalOpen = false" class="text-gray-400 hover:text-gray-600"><i
                                 class="fas fa-times"></i></button>
@@ -163,7 +163,7 @@
                                             <label class="flex items-center space-x-3 cursor-pointer" @click.stop>
                                                 <input type="checkbox" name="modules[]" value="{{ $parentKey }}" x-model="role.modules"
                                                     class="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shadow-sm transition-colors cursor-pointer">
-                                                <span class="text-sm font-bold text-gray-800 dark:text-gray-200 select-none cursor-pointer">
+                                                <span class="text-sm font-bold text-gray-900 dark:text-gray-200 select-none cursor-pointer">
                                                     {{ $parentData['label'] }}
                                                 </span>
                                             </label>

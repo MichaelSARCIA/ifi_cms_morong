@@ -15,7 +15,7 @@ class ServiceRequestController extends Controller
 {
     public function index(Request $request)
     {
-        $query = ServiceRequest::with('priest')->latest();
+        $query = ServiceRequest::with('priest')->whereNotIn('status', ['Completed', 'Approved'])->latest();
 
         if ($request->has('type') && $request->input('type') !== '') {
             $query->where('service_type', trim($request->input('type')));
@@ -33,8 +33,9 @@ class ServiceRequestController extends Controller
             $search = request('search');
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('middle_name', 'like', "%{$search}%")
                   ->orWhere('last_name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+                  ->orWhere('email', 'like', "{$search}%"); // Only match starting substring to prevent catching '.com' domains
             });
         }
 
@@ -46,7 +47,7 @@ class ServiceRequestController extends Controller
             });
         }
 
-        $perPage = $request->input('per_page', 10);
+        $perPage = 10;
         $requests = $query->paginate($perPage)->withQueryString();
         $service_types = \App\Models\ServiceType::all();
 
@@ -84,6 +85,7 @@ class ServiceRequestController extends Controller
             'first_name' => 'nullable|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'last_name' => 'nullable|string|max:255',
+            'suffix' => 'nullable|string|max:255',
             'fathers_name' => 'nullable|string|max:255',
             'mothers_name' => 'nullable|string|max:255',
             'contact_number' => 'nullable|string',
@@ -98,6 +100,29 @@ class ServiceRequestController extends Controller
 
         // No need to manually json_encode if using 'array' cast in model, but for create() it might be needed depending on Laravel version.
         // However, since we added 'custom_data' => 'array' to casts, Laravel handles it.
+
+        // Map custom_data to root columns if not provided at root (since UI fields were removed)
+        if (!empty($validated['custom_data'])) {
+            $cd = $validated['custom_data'];
+            if (empty($validated['first_name'])) {
+                $validated['first_name'] = $cd['first_name'] ?? ($cd['name'] ?? ($cd['applicant_name'] ?? null));
+            }
+            if (empty($validated['middle_name'])) {
+                $validated['middle_name'] = $cd['middle_name'] ?? ($cd['middle_initial'] ?? null);
+            }
+            if (empty($validated['last_name'])) {
+                $validated['last_name'] = $cd['last_name'] ?? ($cd['surname'] ?? ($cd['applicant_last_name'] ?? null));
+            }
+            if (empty($validated['suffix'])) {
+                $validated['suffix'] = $cd['suffix'] ?? null;
+            }
+            if (empty($validated['contact_number'])) {
+                $validated['contact_number'] = $cd['contact_number'] ?? ($cd['contact_no'] ?? ($cd['phone'] ?? ($cd['mobile'] ?? null)));
+            }
+            if (empty($validated['email'])) {
+                $validated['email'] = $cd['email'] ?? ($cd['email_address'] ?? null);
+            }
+        }
 
         $validated['scheduled_time'] = $this->parseScheduledTime($validated['scheduled_time']);
         if ($validated['scheduled_time'] === false) {
@@ -134,9 +159,6 @@ class ServiceRequestController extends Controller
             if ($priest) {
                 $priestsToNotify->push($priest);
             }
-        } else {
-            // If no specific priest, notify all active priests
-            $priestsToNotify = User::where('role', 'Priest')->get();
         }
 
         foreach ($priestsToNotify as $p) {
@@ -145,14 +167,10 @@ class ServiceRequestController extends Controller
                 try {
                     Mail::to($p->email)->send(new \App\Mail\NewPendingRequestMail($newRequest));
                 } catch (\Exception $e) {
-                    \Log::error("Failed to send New Pending Request email: " . $e->getMessage());
+                    Log::error("Failed to send New Pending Request email: " . $e->getMessage());
                 }
             }
         }
-
-        // Notify Treasurers (NEW: synchronized with Priest)
-        $treasurers = User::where('role', 'Treasurer')->get();
-        \Illuminate\Support\Facades\Notification::send($treasurers, new \App\Notifications\NewPendingRequestNotification($newRequest));
 
         // Notify Admins and Secretaries
         $staffToNotify = User::whereIn('role', ['Admin', 'Secretary'])->get();
@@ -170,6 +188,7 @@ class ServiceRequestController extends Controller
             'first_name' => 'nullable|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'last_name' => 'nullable|string|max:255',
+            'suffix' => 'nullable|string|max:255',
             'fathers_name' => 'nullable|string|max:255',
             'mothers_name' => 'nullable|string|max:255',
             'status' => 'required|in:Pending,For Priest Review,For Payment,Approved,Completed,Cancelled,Declined',
@@ -186,13 +205,18 @@ class ServiceRequestController extends Controller
         if ($validated['scheduled_time'] === false) {
             return back()->withErrors(['scheduled_time' => 'Invalid time format. Please use a valid time (e.g. 10:00 AM).'])->withInput();
         }
+
+        // Auto-sync payment status for manual approvals/completions from the Edit Modal
+        if (in_array($validated['status'], ['Approved', 'Completed']) && $validated['payment_status'] === 'Pending') {
+            $validated['payment_status'] = 'Paid';
+        }
         // Validate Priest Availability if a priest is assigned
         if (!empty($validated['priest_id'])) {
             $availabilityError = $this->validatePriestAvailability(
                 $validated['priest_id'], 
                 $validated['scheduled_date'], 
                 $validated['scheduled_time'] ?? null,
-                $serviceRequest->id
+                $serviceRequest->id // EXCLUDE CURRENT REQUEST ID
             );
 
             if ($availabilityError) {
@@ -201,6 +225,24 @@ class ServiceRequestController extends Controller
         }
 
         $oldStatus = $serviceRequest->status;
+        
+        // Ensure custom_data is merged if provided
+        if ($request->has('custom_data')) {
+            $existingData = $serviceRequest->custom_data ?? [];
+            $newData = $validated['custom_data'];
+            $mergedData = array_merge($existingData, $newData);
+            $validated['custom_data'] = $mergedData;
+
+            // Map custom_data to root columns if not provided at root
+            $cd = $validated['custom_data'];
+            if (empty($validated['contact_number'])) {
+                $validated['contact_number'] = $cd['contact_number'] ?? ($cd['contact_no'] ?? ($cd['phone'] ?? ($cd['mobile'] ?? null)));
+            }
+            if (empty($validated['email'])) {
+                $validated['email'] = $cd['email'] ?? ($cd['email_address'] ?? null);
+            }
+        }
+
         $serviceRequest->update($validated);
 
         // Check if the application was just forwarded to the Priest
@@ -222,10 +264,6 @@ class ServiceRequestController extends Controller
                     }
                 }
             }
-
-            // Also notify Treasurers (NEW: synchronized with Priest)
-            $treasurers = User::where('role', 'Treasurer')->get();
-            \Illuminate\Support\Facades\Notification::send($treasurers, new \App\Notifications\StatusUpdatedNotification($serviceRequest, $oldStatus, $validated['status']));
         } else {
             \App\Helpers\AuditLogger::log('Update Request', "Updated service request #" . $serviceRequest->id);
             
@@ -242,16 +280,7 @@ class ServiceRequestController extends Controller
                     \Illuminate\Support\Facades\Notification::send($treasurers, new \App\Notifications\NewPaymentRequestNotification($serviceRequest));
                 }
 
-                // Also notify Priests (NEW: synchronized with Treasurer)
-                if ($serviceRequest->priest_id) {
-                    $assignedPriest = User::find($serviceRequest->priest_id);
-                    if ($assignedPriest) {
-                        $assignedPriest->notify(new \App\Notifications\NewPaymentRequestNotification($serviceRequest));
-                    }
-                } else {
-                    $allPriests = User::where('role', 'Priest')->get();
-                    \Illuminate\Support\Facades\Notification::send($allPriests, new \App\Notifications\NewPaymentRequestNotification($serviceRequest));
-                }
+
             }
         }
 
@@ -315,12 +344,9 @@ class ServiceRequestController extends Controller
 
         if ($validated['status'] === 'For Payment' && $oldStatus !== 'For Payment') {
             if ($request->wantsJson() || $request->ajax()) {
-                return response()->json(['message' => 'Request confirmed. Proceed to process payment.', 'status' => 'success']);
+                return response()->json(['message' => 'Request confirmed. Status updated to For Payment.', 'status' => 'success']);
             }
-            if (auth()->check() && auth()->user()->role === 'Priest') {
-                return redirect()->back()->with('success', 'Request confirmed. Sent to Treasurer for payment.');
-            }
-            return redirect()->route('donations', ['type' => 'fee'])->with('success', 'Request confirmed. Proceed to process payment.');
+            return redirect()->back()->with('success', 'Request confirmed. Status updated to For Payment.');
         }
 
         if ($request->wantsJson() || $request->ajax()) {
@@ -354,8 +380,15 @@ class ServiceRequestController extends Controller
 
         // 1. Check Working Days
         $workingDays = $priest->working_days ?? [];
-        if (!empty($workingDays) && !in_array($dayName, $workingDays)) {
-            return "The selected priest is not available on {$dayName}s.";
+        if (!empty($workingDays)) {
+            // Ensure we are comparing correctly (Trim and same case)
+            $workingDays = array_map(fn($d) => trim(ucfirst(strtolower($d))), $workingDays);
+            $currentDay = trim($dayName);
+            
+            if (!in_array($currentDay, $workingDays)) {
+                \Log::warning("Priest Availability Denied: Priest #{$priestId} does not work on {$currentDay}. Working days: " . implode(', ', $workingDays));
+                return "The selected priest is not available on {$currentDay}s.";
+            }
         }
 
         // 2. Check Working Hours
@@ -395,8 +428,32 @@ class ServiceRequestController extends Controller
                 return "The selected priest has reached their maximum capacity of {$maxServices} services for this date.";
             }
         }
-
         return null; // Available
+    }
+
+    public function checkAvailability(Request $request)
+    {
+        $priestId = $request->query('priest_id');
+        $date = $request->query('date');
+        $time = $request->query('time');
+        $excludeId = $request->query('exclude_id');
+
+        if (!$priestId || !$date) {
+            return response()->json(['available' => true]);
+        }
+
+        $parsedTime = $this->parseScheduledTime($time);
+        
+        $error = $this->validatePriestAvailability($priestId, $date, $parsedTime ?: null, $excludeId);
+
+        if ($error) {
+            return response()->json([
+                'available' => false,
+                'message' => $error
+            ]);
+        }
+
+        return response()->json(['available' => true]);
     }
 
     /**

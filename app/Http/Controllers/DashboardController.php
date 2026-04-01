@@ -167,6 +167,7 @@ class DashboardController extends Controller
         // Services Fees Queue - ONLY for Treasurer
         if ($user->role === 'Treasurer') {
             $data['services_fees_queue'] = ServiceRequest::leftJoin('payments', 'service_requests.id', '=', 'payments.service_request_id')
+                ->leftJoin('service_types', 'service_requests.service_type', '=', 'service_types.name')
                 ->where(function ($q) {
                     $q->where('service_requests.status', 'For Payment')
                       ->orWhere('service_requests.payment_status', 'Paid');
@@ -176,21 +177,23 @@ class DashboardController extends Controller
                 ->limit(50)
                 ->get([
                     'service_requests.id', 
-                    'first_name', 
-                    'last_name', 
-                    'middle_name',
-                    'email',
-                    'details',
-                    'requirements',
-                    'service_type', 
-                    'scheduled_date', 
-                    'scheduled_time', 
-                    'contact_number', 
-                    'status', 
-                    'payment_status', 
+                    'service_requests.first_name', 
+                    'service_requests.last_name', 
+                    'service_requests.middle_name',
+                    'service_requests.email',
+                    'service_requests.details',
+                    'service_requests.requirements',
+                    'service_requests.service_type', 
+                    'service_requests.scheduled_date', 
+                    'service_requests.scheduled_time', 
+                    'service_requests.contact_number', 
+                    'service_requests.status', 
+                    'service_requests.payment_status', 
                     'service_requests.created_at',
                     'payments.id as payment_id',
-                    'custom_data'
+                    'custom_data',
+                    'service_types.payment_methods as allowed_payment_methods',
+                    'service_types.id as service_type_config_id'
                 ]);
         }
 

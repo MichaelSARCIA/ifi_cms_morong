@@ -16,8 +16,7 @@ class FinanceController extends Controller
     {
         $query = DB::table('donations')->orderBy('created_at', 'desc');
         
-        // Base collections type scope
-        $query->whereIn('type', ['Collection', 'Mass Offering', 'Special Collection']);
+        $query->whereIn('type', ['Collection', 'Sunday Collection', 'Mass Offering', 'Special Collection', 'Other']);
 
         // Search scope
         if ($request->filled('search')) {
@@ -29,10 +28,16 @@ class FinanceController extends Controller
 
         // Collection Type scope
         if ($request->filled('collection_type')) {
-            $query->where('type', $request->collection_type);
+            $filterType = $request->collection_type;
+            // 'Sunday Collection' filter should also match legacy 'Collection' records
+            if ($filterType === 'Sunday Collection') {
+                $query->whereIn('type', ['Sunday Collection', 'Collection']);
+            } else {
+                $query->where('type', $filterType);
+            }
         }
 
-        $perPage = $request->input('per_page', 15);
+        $perPage = 10;
         $collections = $query->paginate($perPage)->withQueryString();
         $service_types = ServiceType::all();
         return view('modules.finance.collections', compact('collections', 'service_types'));
@@ -71,44 +76,51 @@ class FinanceController extends Controller
 
         if ($isFeePage) {
             $query = \App\Models\ServiceRequest::with(['priest', 'payment'])
-                ->where(function ($q) {
-                    $q->where('status', 'For Payment')
-                        ->orWhere('payment_status', 'Paid');
-                })
-                ->where('status', '!=', 'Cancelled');
+                ->leftJoin('service_types', 'service_requests.service_type', '=', 'service_types.name')
+                ->select([
+                    'service_requests.*',
+                    'service_types.payment_methods as allowed_payment_methods',
+                    'service_types.id as service_type_config_id'
+                ])
+                ->whereNotIn('service_requests.status', ['Cancelled', 'Declined']);
 
             // Filters
             if ($request->filled('search')) {
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
-                    $q->where('first_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('id', 'like', "%{$search}%");
+                    $q->where('service_requests.first_name', 'like', "%{$search}%")
+                        ->orWhere('service_requests.last_name', 'like', "%{$search}%")
+                        ->orWhere('service_requests.id', 'like', "%{$search}%");
                 });
             }
 
             if ($request->filled('service_type')) {
-                $query->where('service_type', $request->service_type);
+                $query->where('service_requests.service_type', $request->service_type);
             }
 
             if ($request->filled('payment_status')) {
-                $query->where('payment_status', $request->payment_status);
+                $status = $request->payment_status;
+                if ($status === 'Unpaid') {
+                    $query->where('service_requests.payment_status', 'Pending');
+                } else if ($status === 'Paid') {
+                    $query->where('service_requests.payment_status', 'Paid');
+                }
             }
 
             if ($request->filled('date_from')) {
-                $query->whereDate('created_at', '>=', $request->date_from);
+                $query->whereDate('service_requests.created_at', '>=', $request->date_from);
             }
 
             if ($request->filled('date_to')) {
-                $query->whereDate('created_at', '<=', $request->date_to);
+                $query->whereDate('service_requests.created_at', '<=', $request->date_to);
             }
 
-            $perPage = $request->input('per_page', 10);
-            $donations = $query->orderBy('created_at', 'desc')->paginate($perPage)->withQueryString();
+            $perPage = 10;
+            $donations = $query->orderBy('service_requests.created_at', 'desc')->paginate($perPage)->withQueryString();
         } else {
             // Donations: Original logic
             $query = DB::table('donations')->orderBy('created_at', 'desc');
-            $query->whereIn('type', ['Donation', 'Tithes', 'Love Offering']);
+            $query->whereIn('type', ['Donation', 'General Donation', 'Tithes', 'Love Offering', 'Others', 'Other']);
 
             if ($request->filled('search')) {
                 $search = $request->search;
@@ -119,10 +131,16 @@ class FinanceController extends Controller
             }
 
             if ($request->filled('donation_type')) {
-                $query->where('type', $request->donation_type);
+                $filterType = $request->donation_type;
+                // 'General Donation' filter should also match legacy 'Donation' records
+                if ($filterType === 'General Donation') {
+                    $query->whereIn('type', ['General Donation', 'Donation']);
+                } else {
+                    $query->where('type', $filterType);
+                }
             }
 
-            $perPage = $request->input('per_page', 10);
+            $perPage = 10;
             $donations = $query->paginate($perPage)->withQueryString();
         }
 
@@ -207,16 +225,7 @@ class FinanceController extends Controller
             $staff = \App\Models\User::whereIn('role', ['Admin', 'Secretary'])->get();
             \Illuminate\Support\Facades\Notification::send($staff, new \App\Notifications\PaymentProcessedNotification($serviceRequest));
 
-            // Notify Priest (NEW: synchronized with staff/treasurers)
-            if ($serviceRequest->priest_id) {
-                $assignedPriest = \App\Models\User::find($serviceRequest->priest_id);
-                if ($assignedPriest) {
-                    $assignedPriest->notify(new \App\Notifications\PaymentProcessedNotification($serviceRequest));
-                }
-            } else {
-                $allPriests = \App\Models\User::where('role', 'Priest')->get();
-                \Illuminate\Support\Facades\Notification::send($allPriests, new \App\Notifications\PaymentProcessedNotification($serviceRequest));
-            }
+
 
             // Notify Treasurers (NEW: synchronized)
             $treasurers = \App\Models\User::where('role', 'Treasurer')->get();

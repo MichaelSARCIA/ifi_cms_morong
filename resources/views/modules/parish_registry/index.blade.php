@@ -42,19 +42,16 @@
         </div>
 
         <!-- CONTENT -->
-        <div
-            class="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col overflow-visible search-results-container relative" x-data="tableSearch()" @click="handlePagination">
-            <!-- Removed blur loading state for instant feel -->
-
+        <div x-data="tableSearch()">
             <!-- Search & Filters -->
-            <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 rounded-t-3xl bg-white dark:bg-gray-800 relative z-30">
+            <div class="p-6 bg-white dark:bg-gray-800 rounded-t-3xl border border-gray-100 dark:border-gray-800 border-b-0 shadow-sm relative z-30">
                 <form action="{{ route('members') }}" method="GET" class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full search-form" @submit.prevent="submitSearch">
                 <div class="relative max-w-sm w-full group">
                     <span
                         class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary transition-colors">
                         <i class="fas fa-search" :class="{'fa-spin fa-spinner': isLoading, 'fa-search': !isLoading}"></i>
                     </span>
-                    <input type="text" name="search" value="{{ request('search') }}" @input.debounce.300ms="submitSearch"
+                    <input type="text" name="search" value="{{ request('search') }}" @input.debounce.50ms="submitSearch"
                         class="w-full bg-gray-50 dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all placeholder-gray-400 shadow-inner"
                         placeholder="Search parishioners...">
                 </div>
@@ -72,12 +69,22 @@
                         </select>
                     </div>
 
+                    <div class="flex items-center gap-2">
+                        @if(request()->anyFilled(['sex']))
+                            <button type="button" @click="clearFilters()"
+                                class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-bold transition-all px-2 flex items-center gap-1">
+                                <i class="fas fa-times-circle"></i>Clear
+                            </button>
+                        @endif
+                    </div>
+
                 </div>
                 </form>
             </div>
 
-            <!-- Table -->
-            <div class="flex-1 overflow-x-auto relative rounded-b-3xl">
+            <div class="bg-white dark:bg-gray-800 rounded-b-3xl border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col overflow-visible search-results-container relative" @click="handlePagination">
+                <!-- Table -->
+                <div class="flex-1 overflow-x-auto relative rounded-b-3xl">
                 <table class="w-full text-left border-collapse">
                     <thead class="sticky top-0 z-20 bg-white dark:bg-gray-800 shadow-sm">
                         <tr
@@ -103,7 +110,9 @@
             <div class="p-4 border-t border-gray-100 dark:border-gray-700">
                 {{ $members->links() }}
             </div>
+            </div>
         </div>
+    </div>
 
         <!-- ADD/EDIT MODAL -->
         <div x-show="modalOpen" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">

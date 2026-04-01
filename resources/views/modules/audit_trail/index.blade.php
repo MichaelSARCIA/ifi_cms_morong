@@ -6,7 +6,7 @@
 @section('role_label', Auth::user()->role)
 
 @section('content')
-<div class="flex flex-col search-results-container relative" x-data="tableSearch()" @click="handlePagination">
+<div class="flex flex-col relative" x-data="tableSearch()">
     <!-- Removed blur loading state for instant feel -->
 
     {{-- Toolbar --}}
@@ -54,9 +54,7 @@
     </div>
 
     {{-- Table Card --}}
-    <div
-        class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col flex-1 min-h-0">
-        
+    <div class="bg-white dark:bg-gray-800 rounded-t-2xl border border-gray-100 dark:border-gray-700 border-b-0 shadow-sm relative z-20">
         <!-- SEARCH & FILTERS -->
         <div class="p-6 border-b border-gray-100 dark:border-gray-700 shrink-0">
             <form action="{{ route('audit-trail') }}" method="GET" class="flex flex-wrap items-center gap-4 w-full search-form" @submit.prevent="submitSearch">
@@ -76,7 +74,6 @@
                         <option value="Admin" {{ request('role') == 'Admin' ? 'selected' : '' }}>Admin</option>
                         <option value="Priest" {{ request('role') == 'Priest' ? 'selected' : '' }}>Priest</option>
                         <option value="Treasurer" {{ request('role') == 'Treasurer' ? 'selected' : '' }}>Treasurer</option>
-                        <option value="Parishioner" {{ request('role') == 'Parishioner' ? 'selected' : '' }}>Parishioner</option>
                     </select>
                 </div>
 
@@ -90,17 +87,20 @@
                 </div>
             </form>
         </div>
+    </div>
 
-        @if($audit_logs->isEmpty())
-            <div class="flex flex-col items-center justify-center py-20 text-center">
-                <div
-                    class="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4 animate-pulse">
-                    <i class="fas fa-history text-gray-300 text-2xl"></i>
+    <div class="bg-white dark:bg-gray-800 rounded-b-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden flex flex-col flex-1 min-h-0 search-results-container relative" @click="handlePagination">
+        <div class="flex-1 overflow-x-auto relative min-h-0 custom-scrollbar">
+            @if($audit_logs->isEmpty())
+                <div class="flex flex-col items-center justify-center py-20 text-center">
+                    <div
+                        class="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4 animate-pulse">
+                        <i class="fas fa-history text-gray-300 text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-400">No activity logs found</h3>
+                    <p class="text-sm text-gray-400 mt-1 max-w-xs">System activities will appear here once users interact with the
+                        system.</p>
                 </div>
-                <h3 class="text-lg font-bold text-gray-400">No activity logs found</h3>
-                <p class="text-sm text-gray-400 mt-1 max-w-xs">System activities will appear here once users interact with the
-                    system.</p>
-            </div>
         @else
 
             {{-- Table with sticky heading using native HTML table --}}
@@ -313,7 +313,9 @@
                             </div>
                         </div>
                     </div>
-        @endif
+                </div>
+            @endif
         </div>
+    </div>
 </div>
 @endsection

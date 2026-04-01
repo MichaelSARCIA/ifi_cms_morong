@@ -5,7 +5,7 @@
         <td class="px-6 py-4 text-gray-500 dark:text-gray-400 text-sm font-bold">{{ $m->id }}
         </td>
         <td class="px-6 py-4">
-            <span class="font-bold text-gray-800 dark:text-gray-200 text-sm">{{ $m->full_name }}</span>
+            <span class="font-bold text-gray-900 dark:text-white text-base leading-tight">{{ $m->full_name }}</span>
         </td>
         <td class="px-4 py-4 text-center">
             <span
@@ -61,8 +61,8 @@
         <td colspan="8" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
             <div class="flex flex-col items-center justify-center">
                 <i class="fas fa-users text-4xl mb-4 text-gray-300 dark:text-gray-600"></i>
-                <p class="text-lg font-medium">No parishioners found</p>
-                <p class="text-sm">Get started by adding a new member.</p>
+                <p class="text-lg font-bold text-gray-900 dark:text-white">No parishioners found</p>
+                <p class="text-sm text-gray-500">Get started by adding a new member.</p>
             </div>
         </td>
     </tr>

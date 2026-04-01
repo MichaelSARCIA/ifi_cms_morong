@@ -1,4 +1,4 @@
-<div class="fixed inset-0 z-50 overflow-y-auto" style="display: none;" x-show="modalOpen" x-data="{ 
+    <div class="fixed inset-0 z-50 overflow-y-auto" style="display: none;" x-show="modalOpen" x-data="{ 
             modalOpen: false,
             id: '', 
             applicant: '', 
@@ -7,10 +7,23 @@
             date: '', 
             time: '',
             paymentMethod: 'Cash', 
+            @php
+                $pms = $payment_methods ?? $data['payment_methods'] ?? collect();
+            @endphp
+            allMethods: {{ json_encode($pms->map(fn($m) => ['id' => (string)$m->id, 'name' => $m->name])->toArray()) }},
+            allowedMethodIds: [],
+            hasCustomConfig: false,
+            get filteredMethods() {
+                if (!this.hasCustomConfig) {
+                    return this.allMethods;
+                }
+                return this.allMethods.filter(m => this.allowedMethodIds.includes(String(m.id)));
+            },
             amountTendered: '', 
             referenceNumber: '',
             isCash() { return this.paymentMethod === 'Cash'; },
             isElectronic() { return this.paymentMethod !== 'Cash'; },
+            isProcessing: false,
             get changeDue() { 
                 const tendered = parseFloat(this.amountTendered) || 0;
                 return Math.max(0, tendered - this.amount);
@@ -44,8 +57,7 @@
                     let hours = parseInt(timeParts[0], 10);
                     const minutes = timeParts[1];
                     const ampm = hours >= 12 ? 'PM' : 'AM';
-                    hours = hours % 12;
-                    hours = hours ? hours : 12; 
+                    hours = hours >= 12 ? (hours > 12 ? hours - 12 : hours) : (hours === 0 ? 12 : hours);
                     return `${hours}:${minutes} ${ampm}`;
                 }
                 return this.time;
@@ -53,19 +65,55 @@
         }"
         @open-payment-modal.window="
             id = $event.detail.request.id;
-            applicant = $event.detail.request.applicant_name || [$event.detail.request.first_name, $event.detail.request.middle_name, $event.detail.request.last_name].filter(Boolean).join(' ');
-            service = $event.detail.request.service_type;
-            amount = $event.detail.fee;
+            applicant = $event.detail.request.applicant_name || [$event.detail.request.first_name, $event.detail.request.middle_name, $event.detail.request.last_name, $event.detail.request.suffix].filter(Boolean).join(' ');
+            service = $event.detail.request.service_type || 'N/A';
+            amount = $event.detail.fee || 0;
             date = $event.detail.request.scheduled_date;
             time = $event.detail.request.scheduled_time;
-            paymentMethod = 'Cash';
+            
+            // Extract allowed payment methods safely
+            const rawAllowed = $event.detail.request.allowed_payment_methods;
+            const configId = $event.detail.request.service_type_config_id;
+            
+            if (configId !== null && configId !== undefined) {
+                // We have a custom configuration record for this service type
+                hasCustomConfig = true;
+                try {
+                    let parsed = [];
+                    if (Array.isArray(rawAllowed)) {
+                        parsed = rawAllowed;
+                    } else if (typeof rawAllowed === 'string' && rawAllowed.trim() !== '') {
+                        parsed = JSON.parse(rawAllowed);
+                    }
+                    allowedMethodIds = Array.isArray(parsed) ? parsed.map(String) : [];
+                } catch(e) {
+                    console.error('Error parsing allowed payment methods:', e);
+                    allowedMethodIds = [];
+                }
+            } else {
+                // No configuration record found (legacy) - fallback to all active methods
+                hasCustomConfig = false;
+                allowedMethodIds = [];
+            }
+            
+            // Auto-select first allowed method or reset to Cash
+            const filtered = filteredMethods;
+            if (filtered.length > 0) {
+                // Check if Cash is allowed, otherwise pick first
+                const hasCash = filtered.some(m => m.name === 'Cash');
+                paymentMethod = hasCash ? 'Cash' : filtered[0].name;
+            } else {
+                paymentMethod = 'Cash';
+            }
+
             amountTendered = '';
             referenceNumber = '';
+            isProcessing = false;
             modalOpen = true;
         "
         @close-payment-modal.window="modalOpen = false"
     >
-        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" @click="modalOpen = false"></div>
+        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" @click="!isProcessing && (modalOpen = false)"></div>
 
         <div class="relative min-h-screen flex items-center justify-center p-4">
             <div x-show="modalOpen" class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl p-6 border border-gray-100 dark:border-gray-700 relative animate-fade-in-up">
@@ -74,13 +122,13 @@
                     <h3 class="font-bold text-xl text-gray-800 dark:text-white flex items-center gap-2">
                         <i class="fas fa-cash-register text-green-600"></i> Process Payment
                     </h3>
-                    <button type="button" @click="modalOpen = false"
-                        class="text-gray-400 hover:text-gray-600">
+                    <button type="button" @click="modalOpen = false" :disabled="isProcessing"
+                        class="text-gray-400 hover:text-gray-600 disabled:opacity-30">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
 
-                <form id="paymentForm" method="POST" onsubmit="return confirmPaymentSubmit(event, this)" :action="'{{ url('service-fees') }}/' + id + '/process-payment'">
+                <form id="paymentForm" method="POST" @submit.prevent="confirmPaymentSubmit($el)" :action="'{{ url('service-fees') }}/' + id + '/process-payment'">
                     @csrf
                     <div class="space-y-4">
                         <!-- Service Info (Read Only) -->
@@ -110,9 +158,9 @@
                         <div>
                             <label class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Amount (₱)</label>
                             <div class="relative">
-                                <span class="absolute left-4 top-3.5 text-gray-400">₱</span>
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₱</span>
                                 <input type="number" step="0.01" name="amount" x-model="amount"
-                                    class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl pl-8 pr-4 py-3 text-sm font-bold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
+                                    class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
                                     required readonly>
                             </div>
                         </div>
@@ -120,18 +168,20 @@
                         <div>
                             <label class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Payment Method</label>
                             <div class="relative">
-                                <select name="payment_method" x-model="paymentMethod" class="dropdown-btn w-full">
-                                    @php
-                                        // Standard payment methods as fallback
-                                        $methods = ['Cash', 'GCash', 'PayMaya', 'Bank Transfer'];
-                                        if(isset($payment_methods) && count($payment_methods) > 0) {
-                                            $methods = $payment_methods->pluck('name')->toArray();
-                                        }
-                                    @endphp
-                                    @foreach($methods as $method)
-                                        <option value="{{ $method }}">{{ $method }}</option>
-                                    @endforeach
-                                </select>
+                                <template x-if="filteredMethods.length > 0">
+                                    <select name="payment_method" x-model="paymentMethod" class="dropdown-btn w-full" :disabled="isProcessing">
+                                        <template x-for="method in filteredMethods" :key="method.id">
+                                            <option :value="method.name" x-text="method.name"></option>
+                                        </template>
+                                    </select>
+                                </template>
+                                <template x-if="filteredMethods.length === 0">
+                                    <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                                        <p class="text-xs text-red-600 dark:text-red-400 font-bold">
+                                            <i class="fas fa-exclamation-triangle mr-1"></i> No payment methods configured for this service.
+                                        </p>
+                                    </div>
+                                </template>
                             </div>
                         </div>
 
@@ -143,14 +193,22 @@
                              class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Amount Tendered</label>
-                                <input type="number" step="0.01" name="amount_tendered" x-model="amountTendered"
-                                    class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm font-bold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
+                                <input type="number" step="0.01" name="amount_tendered" x-model="amountTendered" :disabled="isProcessing"
+                                    @keydown="['e', 'E', '+', '-'].includes($event.key) && $event.preventDefault()"
+                                    class="w-full bg-gray-50 dark:bg-gray-900 border rounded-xl px-4 py-3 text-sm font-bold text-gray-800 dark:text-white focus:outline-none focus:ring-2 transition-all"
+                                    :class="isCash() && amountTendered && parseFloat(amountTendered) < amount 
+                                        ? 'border-red-500 focus:ring-red-500/20 ring-2 ring-red-500/10' 
+                                        : 'border-gray-200 dark:border-gray-700 focus:ring-green-500/20 focus:border-green-500'"
                                     placeholder="0.00">
+                                <p x-show="isCash() && amountTendered && parseFloat(amountTendered) < amount" 
+                                   class="text-[10px] text-red-500 mt-1 font-bold animate-pulse">
+                                    <i class="fas fa-exclamation-circle mr-1"></i> Insufficient amount!
+                                </p>
                             </div>
                             <div>
                                 <label class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Change</label>
                                 <div class="w-full bg-gray-100 dark:bg-gray-800/50 border border-transparent rounded-xl px-4 py-3 text-sm font-bold text-green-600 dark:text-green-400"
-                                    x-text="'₱' + changeDue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})">
+                                    x-text="'₱ ' + changeDue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})">
                                 </div>
                             </div>
                         </div>
@@ -160,17 +218,22 @@
                              x-transition:enter-start="opacity-0 -translate-y-4"
                              x-transition:enter-end="opacity-100 translate-y-0">
                             <label class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Reference No.</label>
-                            <input type="text" name="reference_number" x-model="referenceNumber"
+                            <input type="text" name="reference_number" x-model="referenceNumber" :disabled="isProcessing"
                                 class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
                                 placeholder="e.g. Ref No. 123456" :required="isElectronic()">
                         </div>
 
                         <button type="submit"
-                            :disabled="(isCash() && (!amountTendered || parseFloat(amountTendered) <= 0)) || (isElectronic() && !referenceNumber.trim())"
-                            :class="(isCash() && (!amountTendered || parseFloat(amountTendered) <= 0)) || (isElectronic() && !referenceNumber.trim())
+                            :disabled="isProcessing || (isCash() && (!amountTendered || parseFloat(amountTendered) < amount)) || (isElectronic() && !referenceNumber.trim())"
+                            :class="(isProcessing || (isCash() && (!amountTendered || parseFloat(amountTendered) < amount)) || (isElectronic() && !referenceNumber.trim()))
                                 ? 'w-full bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 font-bold py-3.5 rounded-xl mt-2 cursor-not-allowed'
                                 : 'w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-3.5 rounded-xl mt-2 shadow-lg shadow-green-500/30 transition-all transform hover:-translate-y-0.5'">
-                            <i class="fas fa-check-circle mr-2"></i> Confirm Payment &amp; Print Receipt
+                            <template x-if="!isProcessing">
+                                <span><i class="fas fa-check-circle mr-2"></i> Confirm Payment &amp; Print Receipt</span>
+                            </template>
+                            <template x-if="isProcessing">
+                                <span><i class="fas fa-spinner fa-spin mr-2"></i> Processing...</span>
+                            </template>
                         </button>
                     </div>
                 </form>
@@ -179,108 +242,124 @@
     </div>
     
     <script>
-        function openPaymentModal(request, fee) {
+        window.openPaymentModal = async function(request, fee) {
+            // If we have a config ID, fetch the LATEST data to ensure absolute accuracy without reload
+            if (request.service_type_config_id) {
+                try {
+                    // Quick fetch for the latest settings
+                    const response = await fetch(`/api/services/${request.service_type_config_id}`);
+                    if (response.ok) {
+                        const fresh = await response.json();
+                        // Update the request object with fresh configuration
+                        request.allowed_payment_methods = fresh.payment_methods;
+                        // Use fresh fee if available
+                        if (fresh.fee !== undefined) {
+                            fee = fresh.fee;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch fresh service settings:", e);
+                    // Fallback to existing data if fetch fails
+                }
+            }
+
             window.dispatchEvent(new CustomEvent('open-payment-modal', { 
                 detail: { request: request, fee: fee } 
             }));
-        }
+        };
 
-        function confirmPaymentSubmit(event, form) {
-            event.preventDefault();
-            showConfirm(
-                'Confirm Payment?',
-                'This will mark the request as Paid. You can print the receipt afterwards.',
-                'bg-green-600 hover:bg-green-700',
-                async () => {
-                    try {
-                        const formData = new FormData(form);
-                        const response = await fetch(form.action, {
-                            method: 'POST',
-                            headers: {
-                                'X-Requested-With': 'XMLHttpRequest',
-                                'Accept': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
-                            },
-                            body: formData
-                        });
+        async function confirmPaymentSubmit(form) {
+            const alpineData = Alpine.$data(form.closest('[x-data]'));
+            if (alpineData.isProcessing) return;
+            
+            alpineData.isProcessing = true;
+            try {
+                const formData = new FormData(form);
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+                    },
+                    body: formData
+                });
 
-                        const result = await response.json();
+                const result = await response.json();
 
-                        if (result.success) {
-                            window.dispatchEvent(new CustomEvent('close-payment-modal'));
-                            
-                            // Emit global event to update notifications bell
-                            window.dispatchEvent(new CustomEvent('notification-updated'));
+                if (result.success) {
+                    alpineData.modalOpen = false;
+                    
+                    // Emit global event to update notifications bell
+                    window.dispatchEvent(new CustomEvent('notification-updated'));
 
-                            // Success Alert
-                            window.showConfirmModal({
-                                title: 'Success',
-                                message: result.message,
-                                btnClass: 'bg-green-600 hover:bg-green-700',
-                                confirmText: 'Okay',
-                                isAlert: true
-                            });
+                    // Success Alert
+                    window.showConfirmModal({
+                        title: 'Success',
+                        message: result.message,
+                        btnClass: 'bg-green-600 hover:bg-green-700',
+                        confirmText: 'Okay',
+                        isAlert: true
+                    });
 
-                            // Update UI Row - Handle both specific row IDs (donations) and generic row handling
-                            const url = form.action;
-                            const parts = url.split('/');
-                            const id = parts[parts.length - 2];
+                    // Update UI Row - Handle both specific row IDs (donations) and generic row handling
+                    const url = form.action;
+                    const parts = url.split('/');
+                    const id = parts[parts.length - 2];
 
-                            const row = document.getElementById('row-' + id);
-                            if (row) {
-                                // Update row in donations page
-                                let actionCell = row.cells[row.cells.length - 1];
-                                let paymentCell = row.cells.length >= 6 ? row.cells[4] : null;
-                                if (paymentCell) {
-                                    paymentCell.innerHTML = `
-                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
-                                            <i class="fas fa-check-circle"></i> Paid
-                                        </span>
-                                    `;
-                                }
-
-                                actionCell.innerHTML = `
-                                    <div class="flex items-center justify-center gap-2">
-                                        <button disabled
-                                            class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed"
-                                            title="Already Paid">
-                                            <i class="fas fa-check text-xs"></i>
-                                        </button>
-                                        <a href="${result.receipt_url}" target="_blank"
-                                            class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30 transition-all"
-                                            title="Print Receipt">
-                                            <i class="fas fa-print text-xs"></i>
-                                        </a>
-                                    </div>
-                                `;
-                            } else {
-                                // If not row-id found, might be dashboard, reload or update differently
-                                // For now, simple reload is safest if we can't find the exact row easily
-                                setTimeout(() => window.location.reload(), 1000);
-                            }
-
-                        } else {
-                            window.showConfirmModal({
-                                title: 'Error',
-                                message: result.message || 'Payment processing failed.',
-                                btnClass: 'bg-red-600 hover:bg-red-700',
-                                confirmText: 'Okay',
-                                isAlert: true
-                            });
+                    const row = document.getElementById('row-' + id);
+                    if (row) {
+                        // Update row in donations page
+                        let actionCell = row.cells[row.cells.length - 1];
+                        let paymentCell = row.cells.length >= 6 ? row.cells[4] : null;
+                        if (paymentCell) {
+                            paymentCell.innerHTML = `
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+                                    <i class="fas fa-check-circle"></i> Paid
+                                </span>
+                            `;
                         }
-                    } catch (e) {
-                        console.error(e);
-                        window.showConfirmModal({
-                            title: 'Error',
-                            message: 'An unexpected error occurred.',
-                            btnClass: 'bg-red-600 hover:bg-red-700',
-                            confirmText: 'Okay',
-                            isAlert: true
-                        });
+
+                        actionCell.innerHTML = `
+                            <div class="flex items-center justify-center gap-2">
+                                <button disabled
+                                    class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed"
+                                    title="Already Paid">
+                                    <i class="fas fa-check text-xs"></i>
+                                </button>
+                                <a href="${result.receipt_url}" target="_blank"
+                                    class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30 transition-all"
+                                    title="Print Receipt">
+                                    <i class="fas fa-print text-xs"></i>
+                                </a>
+                            </div>
+                        `;
+                    } else {
+                        // If not row-id found, might be dashboard, reload or update differently
+                        // For now, simple reload is safest if we can't find the exact row easily
+                        setTimeout(() => window.location.reload(), 1000);
                     }
-                },
-                'Process Payment'
-            );
-            return false;
+
+                } else {
+                    window.showConfirmModal({
+                        title: 'Error',
+                        message: result.message || 'Payment processing failed.',
+                        btnClass: 'bg-red-600 hover:bg-red-700',
+                        confirmText: 'Okay',
+                        isAlert: true
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+                window.showConfirmModal({
+                    title: 'Error',
+                    message: 'An unexpected error occurred.',
+                    btnClass: 'bg-red-600 hover:bg-red-700',
+                    confirmText: 'Okay',
+                    isAlert: true
+                });
+            } finally {
+                alpineData.isProcessing = false;
+            }
         }
     </script>

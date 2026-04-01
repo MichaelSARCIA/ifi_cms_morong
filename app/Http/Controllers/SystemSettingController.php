@@ -20,6 +20,7 @@ class SystemSettingController extends Controller
         // Fetch all settings as key-value pairs
         $settings = SystemSetting::pluck('value', 'key')->toArray();
         $services = ServiceType::all();
+        $archivedServices = ServiceType::onlyTrashed()->get();
         $paymentMethods = PaymentMethod::orderBy('sort_order')->orderBy('id')->get();
         $active_priests = User::where('role', 'Priest')->get();
 
@@ -44,8 +45,9 @@ class SystemSettingController extends Controller
         })->sortByDesc('last_modified')->values()->toArray();
 
         $latest_backup = !empty($backups) ? $backups[0] : null;
-
-        return view('modules.system_settings.index', compact('settings', 'services', 'latest_backup', 'backups', 'active_priests', 'paymentMethods'));
+        $archivedPaymentMethods = PaymentMethod::onlyTrashed()->orderBy('deleted_at', 'desc')->get();
+ 
+        return view('modules.system_settings.index', compact('settings', 'services', 'archivedServices', 'latest_backup', 'backups', 'active_priests', 'paymentMethods', 'archivedPaymentMethods'));
     }
 
     public function updateGeneral(Request $request)
@@ -69,8 +71,6 @@ class SystemSettingController extends Controller
                 ['value' => $filename]
             );
         }
-
-
 
         if ($request->hasFile('login_background')) {
             $file = $request->file('login_background');
@@ -103,10 +103,8 @@ class SystemSettingController extends Controller
             'payment_methods.*' => 'string',
         ]);
 
-        // Requirements are now passed as an array from the frontend
         $requirements = $request->requirements ?? [];
         $custom_fields = $request->custom_fields ? json_decode($request->custom_fields, true) : [];
-        // Cast payment method IDs to integers for consistent storage
         $payment_methods = array_map('intval', $request->payment_methods ?? []);
 
         ServiceType::create([
@@ -142,7 +140,6 @@ class SystemSettingController extends Controller
 
         $requirements = $request->requirements ?? [];
         $custom_fields = $request->custom_fields ? json_decode($request->custom_fields, true) : [];
-        // Cast payment method IDs to integers for consistent storage
         $payment_methods = array_map('intval', $request->payment_methods ?? []);
 
         $service->update([
@@ -166,9 +163,40 @@ class SystemSettingController extends Controller
         $name = $service->name;
         $service->delete();
 
-        AuditLogger::log('Delete Service', "Deleted service type: {$name}");
+        AuditLogger::log('Archive Service', "Archived service type: {$name}");
         Cache::forget('service_types_sidebar');
-        return redirect()->back()->with('success', 'Service type deleted successfully.');
+        return redirect()->back()->with('success', 'Service type archived successfully.');
+    }
+
+    public function restoreService($id)
+    {
+        $service = ServiceType::onlyTrashed()->findOrFail($id);
+        $name = $service->name;
+        $service->restore();
+
+        AuditLogger::log('Restore Service', "Restored service type: {$name}");
+        Cache::forget('service_types_sidebar');
+        return redirect()->back()->with('success', 'Service type restored successfully.');
+    }
+
+    public function forceDeleteService($id)
+    {
+        $service = ServiceType::onlyTrashed()->findOrFail($id);
+        $name = $service->name;
+        $service->forceDelete();
+
+        AuditLogger::log('Permanent Delete Service', "Permanently deleted service type: {$name}");
+        Cache::forget('service_types_sidebar');
+        return redirect()->back()->with('success', 'Service type permanently deleted.');
+    }
+
+    public function getService($id)
+    {
+        $service = ServiceType::find($id);
+        if (!$service) {
+            return response()->json(['error' => 'Service not found'], 404);
+        }
+        return response()->json($service);
     }
 
     // --- Database Management ---
@@ -183,28 +211,26 @@ class SystemSettingController extends Controller
 
         $path = storage_path('app/backups/' . $filename);
         
-        $user = env('DB_USERNAME', 'root');
-        $pass = env('DB_PASSWORD', '');
-        $host = env('DB_HOST', '127.0.0.1');
-        $db = env('DB_DATABASE', 'ifi_cms_morong');
+        $user = config('database.connections.mysql.username');
+        $pass = config('database.connections.mysql.password');
+        $host = config('database.connections.mysql.host');
+        $db   = config('database.connections.mysql.database');
 
-        $passStr = empty($pass) ? "" : "--password=\"{$pass}\"";
+        $passStr = empty($pass) ? "" : "--password=\"" . addslashes($pass) . "\"";
 
-        // Try standard command
-        $command = "mysqldump --user={$user} {$passStr} --host={$host} {$db} > " . escapeshellarg($path) . " 2>&1";
+        // Try standard path first
+        $command = "mysqldump --user=" . escapeshellarg($user) . " {$passStr} --host=" . escapeshellarg($host) . " " . escapeshellarg($db) . " > " . escapeshellarg($path) . " 2>&1";
         exec($command, $output, $result);
 
         if ($result !== 0) {
-            // Fallback for XAMPP Windows
             $xamppPath = "C:\\xampp\\mysql\\bin\\mysqldump.exe";
             if (file_exists($xamppPath)) {
-                $command = "\"$xamppPath\" --user={$user} {$passStr} --host={$host} {$db} > " . escapeshellarg($path) . " 2>&1";
+                $command = "\"$xamppPath\" --user=" . escapeshellarg($user) . " {$passStr} --host=" . escapeshellarg($host) . " " . escapeshellarg($db) . " > " . escapeshellarg($path) . " 2>&1";
                 exec($command, $output, $result);
             }
         }
 
         if ($result === 0) {
-            // Prepend foreign key checks off to the file
             $sql = file_get_contents($path);
             $newSql = "SET FOREIGN_KEY_CHECKS=0;\n" . $sql . "\nSET FOREIGN_KEY_CHECKS=1;\n";
             file_put_contents($path, $newSql);
@@ -224,26 +250,34 @@ class SystemSettingController extends Controller
         ]);
 
         $file = $request->file('backup_file');
-        $path = $file->getRealPath();
+        
+        // Wrap the SQL with foreign key checks disable/enable to ensure safe restore
+        $sqlContent = file_get_contents($file->getRealPath());
+        $tempPath = storage_path('app/temp_restore_' . time() . '.sql');
+        $wrappedSql = "SET FOREIGN_KEY_CHECKS=0;\n" . $sqlContent . "\nSET FOREIGN_KEY_CHECKS=1;";
+        file_put_contents($tempPath, $wrappedSql);
 
-        $user = env('DB_USERNAME', 'root');
-        $pass = env('DB_PASSWORD', '');
-        $host = env('DB_HOST', '127.0.0.1');
-        $db = env('DB_DATABASE', 'ifi_cms_morong');
+        $user = config('database.connections.mysql.username');
+        $pass = config('database.connections.mysql.password');
+        $host = config('database.connections.mysql.host');
+        $db   = config('database.connections.mysql.database');
 
-        $passStr = empty($pass) ? "" : "--password=\"{$pass}\"";
+        $passStr = empty($pass) ? "" : "--password=\"" . addslashes($pass) . "\"";
 
-        $command = "mysql --user={$user} {$passStr} --host={$host} {$db} < " . escapeshellarg($path) . " 2>&1";
+        // Try standard path first
+        $command = "mysql --user=" . escapeshellarg($user) . " {$passStr} --host=" . escapeshellarg($host) . " " . escapeshellarg($db) . " < " . escapeshellarg($tempPath) . " 2>&1";
         exec($command, $output, $result);
 
         if ($result !== 0) {
-            // Fallback for XAMPP
             $xamppPath = "C:\\xampp\\mysql\\bin\\mysql.exe";
             if (file_exists($xamppPath)) {
-                $command = "\"$xamppPath\" --user={$user} {$passStr} --host={$host} {$db} < " . escapeshellarg($path) . " 2>&1";
+                $command = "\"$xamppPath\" --user=" . escapeshellarg($user) . " {$passStr} --host=" . escapeshellarg($host) . " " . escapeshellarg($db) . " < " . escapeshellarg($tempPath) . " 2>&1";
                 exec($command, $output, $result);
             }
         }
+
+        // Clean up temp file
+        if (file_exists($tempPath)) unlink($tempPath);
 
         if ($result === 0) {
             AuditLogger::log('Database Restore', 'Restored database from backup');
@@ -257,11 +291,9 @@ class SystemSettingController extends Controller
     public function downloadBackup($filename)
     {
         $path = storage_path('app/backups/' . $filename);
-
         if (!File::exists($path)) {
             return redirect()->back()->with('error', 'Backup file not found.');
         }
-
         AuditLogger::log('Database Download', 'Downloaded backup file: ' . $filename);
         return response()->download($path);
     }
@@ -269,13 +301,11 @@ class SystemSettingController extends Controller
     public function deleteBackup($filename)
     {
         $path = storage_path('app/backups/' . $filename);
-
         if (File::exists($path)) {
             File::delete($path);
             AuditLogger::log('Database Delete', 'Deleted backup file: ' . $filename);
             return redirect()->back()->with('success', 'Backup file deleted successfully.');
         }
-
         return redirect()->back()->with('error', 'Backup file not found.');
     }
 
@@ -289,16 +319,13 @@ class SystemSettingController extends Controller
             'is_active'  => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
         ]);
-
         $maxOrder = PaymentMethod::max('sort_order') ?? 0;
-
         PaymentMethod::create([
             'name'       => $validated['name'],
             'icon'       => $validated['icon'] ?? 'fa-money-bill',
             'is_active'  => $request->boolean('is_active', true),
             'sort_order' => $validated['sort_order'] ?? ($maxOrder + 1),
         ]);
-
         AuditLogger::log('Create Payment Method', "Added payment method: {$validated['name']}");
         return redirect()->back()->with('success', 'Payment method added successfully.');
     }
@@ -306,21 +333,18 @@ class SystemSettingController extends Controller
     public function updatePaymentMethod(Request $request, $id)
     {
         $method = PaymentMethod::findOrFail($id);
-
         $validated = $request->validate([
             'name'       => 'required|string|max:100',
             'icon'       => 'nullable|string|max:100',
             'is_active'  => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
         ]);
-
         $method->update([
             'name'       => $validated['name'],
             'icon'       => $validated['icon'] ?? 'fa-money-bill',
             'is_active'  => $request->boolean('is_active', true),
             'sort_order' => $validated['sort_order'] ?? $method->sort_order,
         ]);
-
         AuditLogger::log('Update Payment Method', "Updated payment method: {$method->name}");
         return redirect()->back()->with('success', 'Payment method updated successfully.');
     }
@@ -330,23 +354,37 @@ class SystemSettingController extends Controller
         $method = PaymentMethod::findOrFail($id);
         $name = $method->name;
         $method->delete();
+        AuditLogger::log('Archive Payment Method', "Archived payment method: {$name}");
+        return redirect()->back()->with('success', 'Payment method archived successfully.');
+    }
+ 
+    public function restorePaymentMethod($id)
+    {
+        $method = PaymentMethod::onlyTrashed()->findOrFail($id);
+        $name = $method->name;
+        $method->restore();
+        AuditLogger::log('Restore Payment Method', "Restored payment method: {$name}");
+        return redirect()->back()->with('success', 'Payment method restored successfully.');
+    }
 
-        AuditLogger::log('Delete Payment Method', "Deleted payment method: {$name}");
-        return redirect()->back()->with('success', 'Payment method deleted successfully.');
+    public function forceDeletePaymentMethod($id)
+    {
+        $method = PaymentMethod::onlyTrashed()->findOrFail($id);
+        $name = $method->name;
+        $method->forceDelete();
+        AuditLogger::log('Permanent Delete Payment Method', "Permanently deleted payment method: {$name}");
+        return redirect()->back()->with('success', 'Payment method permanently deleted.');
     }
 
     public function togglePaymentMethod($id)
     {
         $method = PaymentMethod::findOrFail($id);
         $method->update(['is_active' => !$method->is_active]);
-
         $status = $method->is_active ? 'activated' : 'deactivated';
         AuditLogger::log('Toggle Payment Method', "Payment method '{$method->name}' {$status}");
-
         if (request()->expectsJson() || request()->header('Content-Type') === 'application/json') {
             return response()->json(['success' => true, 'is_active' => $method->is_active]);
         }
-
         return redirect()->back()->with('success', "Payment method {$status} successfully.");
     }
 }

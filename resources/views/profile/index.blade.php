@@ -53,10 +53,20 @@
                                     class="inline-block px-4 py-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold text-sm mb-4">
                                     {{ Auth::user()->role }}
                                 </span>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 break-all">
+                                <p class="text-sm text-gray-500 dark:text-gray-400 break-all mb-4">
                                     <i class="fas fa-envelope mr-1"></i> {{ Auth::user()->email }}
                                 </p>
                             </form>
+
+                            @if(Auth::user()->profile_pic)
+                                <form action="{{ route('profile.clear-photo') }}" method="POST"
+                                    onsubmit="event.preventDefault(); showConfirm('Remove Photo', 'Are you sure you want to remove your profile picture and revert to initials?', 'bg-red-600 hover:bg-red-700', () => this.submit(), 'Remove')">
+                                    @csrf
+                                    <button type="submit" class="text-xs font-bold text-red-500 hover:text-red-600 transition-colors uppercase tracking-widest">
+                                        <i class="fas fa-trash-alt mr-1"></i> Remove Photo
+                                    </button>
+                                </form>
+                            @endif
                         </div>
 
                         <!-- RIGHT: Details Form -->
@@ -77,6 +87,12 @@
                                     </h4>
 
                                     <div class="grid grid-cols-1 gap-6">
+                                        <div class="mb-2">
+                                            <label class="block text-sm font-bold text-gray-500 uppercase mb-2">Current Password
+                                                <span class="text-xs text-amber-500 font-normal lowercase">(Required to change password)</span></label>
+                                            <input type="password" name="current_password" placeholder="Enter current password"
+                                                class="w-full px-5 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-800 dark:text-white">
+                                        </div>
                                         <div>
                                             <label class="block text-sm font-bold text-gray-500 uppercase mb-2">New Password
                                                 <span class="text-xs text-gray-400 font-normal lowercase">(Optional)</span></label>
