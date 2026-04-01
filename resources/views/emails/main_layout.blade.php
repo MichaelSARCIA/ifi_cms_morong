@@ -31,7 +31,19 @@
                     <tr>
                         <td align="center" style="padding: 40px 32px 0 32px;">
                             @if(isset($settings['church_logo']) && $settings['church_logo'])
-                                <img src="{{ config('app.url') . '/uploads/' . $settings['church_logo'] }}" alt="Church Logo" class="logo-img" style="width: 100px; height: auto; margin-bottom: 24px;">
+                                @php
+                                    $logoPath = public_path('uploads/' . $settings['church_logo']);
+                                    $logoData = null;
+                                    if (file_exists($logoPath)) {
+                                        $logoData = base64_encode(file_get_contents($logoPath));
+                                        $logoMime = mime_content_type($logoPath);
+                                    }
+                                @endphp
+                                @if($logoData)
+                                    <img src="data:{{ $logoMime }};base64,{{ $logoData }}" alt="Church Logo" class="logo-img" style="width: 100px; height: auto; margin-bottom: 24px;">
+                                @else
+                                    <img src="{{ config('app.url') . '/uploads/' . $settings['church_logo'] }}" alt="Church Logo" class="logo-img" style="width: 100px; height: auto; margin-bottom: 24px;">
+                                @endif
                             @endif
                             <h2 style="color: #1a202c; font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.5px; line-height: 1.2;">
                                 {{ $settings['church_name'] ?? 'Iglesia Filipina Independiente' }}
