@@ -32,28 +32,24 @@
                         <td align="center" style="padding: 40px 32px 0 32px;">
                             @if(isset($settings['church_logo']) && $settings['church_logo'])
                                 @php
-                                    $churchLogo = $settings['church_logo'];
-                                    $logoPath = null;
-                                    // Robust path detection (checks multiple standard Laravel/Hostinger public paths)
-                                    $possiblePaths = [
-                                        public_path('uploads/' . $churchLogo),
-                                        base_path('public_html/uploads/' . $churchLogo),
-                                        base_path('public/uploads/' . $churchLogo),
-                                        realpath(__DIR__ . '/../../../../public/uploads/' . $churchLogo),
-                                    ];
-
-                                    foreach ($possiblePaths as $path) {
-                                        if ($path && file_exists($path)) {
-                                            $logoPath = $path;
-                                            break;
-                                        }
+                                    $logoFile = 'uploads/' . ($settings['church_logo'] ?? '');
+                                    // Step 1: Detect path (some Hostingers use public_html)
+                                    $logoPath = public_path($logoFile);
+                                    if (!file_exists($logoPath)) {
+                                        $logoPath = base_path('public_html/' . $logoFile);
+                                    }
+                                    
+                                    // Step 2: CID Embedding (Standard and robust for Gmail)
+                                    $logoCid = null;
+                                    if (file_exists($logoPath)) {
+                                        $logoCid = $message->embed($logoPath);
                                     }
                                 @endphp
 
-                                @if($logoPath)
-                                    <img src="{{ $message->embed($logoPath) }}" alt="Church Logo" class="logo-img" style="width: 100px; height: auto; margin-bottom: 24px;">
+                                @if($logoCid)
+                                    <img src="{{ $logoCid }}" alt="Church Logo" class="logo-img" style="width: 100px; height: auto; margin-bottom: 24px;">
                                 @else
-                                    <img src="{{ config('app.url') . '/uploads/' . $settings['church_logo'] }}" alt="Church Logo" class="logo-img" style="width: 100px; height: auto; margin-bottom: 24px;">
+                                    <img src="{{ asset('uploads/' . ($settings['church_logo'] ?? '')) }}" alt="Church Logo" class="logo-img" style="width: 100px; height: auto; margin-bottom: 24px;">
                                 @endif
                             @endif
                             <h2 style="color: #1a202c; font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.5px; line-height: 1.2;">
