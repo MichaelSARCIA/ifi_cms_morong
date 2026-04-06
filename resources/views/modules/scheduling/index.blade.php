@@ -276,7 +276,7 @@
                     <div>
                         <label class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">Activity Categories</label>
                         <div class="relative group">
-                            <select x-model="filter_event_type" @change="updateFilters()" 
+                            <select x-model="filter_event_type" @change="updateActivityFilter()" 
                                 class="dropdown-btn w-full !py-3 !text-base !font-bold text-gray-700 dark:text-gray-200">
                                 <option value="All">All Categories</option>
                                 <template x-for="(color, name) in eventCategories" :key="name">
@@ -290,7 +290,7 @@
                     <div>
                         <label class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">Services</label>
                         <div class="relative group">
-                            <select x-model="filter_service_type" @change="updateFilters()" 
+                            <select x-model="filter_service_type" @change="updateServiceFilter()" 
                                 class="dropdown-btn w-full !py-3 !text-base !font-bold text-gray-700 dark:text-gray-200">
                                 <option value="All">All Services</option>
                                 <template x-for="(color, name) in serviceTypes" :key="name">
@@ -468,13 +468,14 @@
     @push('scripts')
     <script>
         function schedulingApp() {
+            let calendarInstance = null;
+
             return {
                 isAddModalOpen: false,
                 isViewModalOpen: false,
                 isSubmitting: false,
                 isEditMode: false,
                 selectedEvent: {},
-                calendar: null,
                 notifOpen: false,
                 notifMsg: '',
                 notifType: 'success',
@@ -515,7 +516,7 @@
                 prevMiniMonth() { this.miniDate = new Date(this.miniDate.getFullYear(), this.miniDate.getMonth() - 1, 1); },
                 nextMiniMonth() { this.miniDate = new Date(this.miniDate.getFullYear(), this.miniDate.getMonth() + 1, 1); },
                 goToDate(date) {
-                    if (this.calendar) this.calendar.gotoDate(date);
+                    if (calendarInstance) calendarInstance.gotoDate(date);
                     this.miniDate = new Date(date.getFullYear(), date.getMonth(), 1);
                 },
 
@@ -534,8 +535,18 @@
                 },
                 serviceTypes: {{ Js::from($service_types->pluck('color', 'name')) }},
 
-                updateFilters() {
-                    this.calendar.refetchEvents();
+                updateActivityFilter() {
+                    if (this.filter_event_type !== 'All') {
+                        this.filter_service_type = 'All';
+                    }
+                    if (calendarInstance) calendarInstance.refetchEvents();
+                },
+
+                updateServiceFilter() {
+                    if (this.filter_service_type !== 'All') {
+                        this.filter_event_type = 'All';
+                    }
+                    if (calendarInstance) calendarInstance.refetchEvents();
                 },
 
                 getEventColor(event) {
@@ -548,7 +559,7 @@
 
                 init() {
                     const calendarEl = document.getElementById('calendar');
-                    this.calendar = new FullCalendar.Calendar(calendarEl, {
+                    calendarInstance = new FullCalendar.Calendar(calendarEl, {
                         initialView: 'dayGridMonth',
                         headerToolbar: {
                             left: 'prev,next today',
@@ -583,7 +594,7 @@
                             this.miniDate = new Date(d.getFullYear(), d.getMonth(), 1);
                         }
                     });
-                    this.calendar.render();
+                    calendarInstance.render();
 
                     /* Auto end-time watcher */
                     this.$watch('newEvent.start_datetime', (v) => {
@@ -608,7 +619,7 @@
                             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
                         });
                         const d = await r.json();
-                        if (r.ok) { this.isViewModalOpen = false; this.calendar.refetchEvents(); this.showNotif('Event deleted!', 'success'); }
+                        if (r.ok) { this.isViewModalOpen = false; if (calendarInstance) calendarInstance.refetchEvents(); this.showNotif('Event deleted!', 'success'); }
                         else this.showNotif(d.message || 'Failed to delete.', 'error');
                     } catch { this.showNotif('An error occurred.', 'error'); }
                     finally { this.isSubmitting = false; }
@@ -662,7 +673,7 @@
                         const d = await r.json();
                         if (r.ok) {
                             this.isAddModalOpen = false;
-                            this.calendar.refetchEvents();
+                            if (calendarInstance) calendarInstance.refetchEvents();
                             this.showNotif(this.isEditMode ? 'Event updated!' : 'Event created!', 'success');
                         } else {
                             this.showNotif(d.errors ? Object.values(d.errors).flat().join(' ') : (d.message || 'Failed.'), 'error');

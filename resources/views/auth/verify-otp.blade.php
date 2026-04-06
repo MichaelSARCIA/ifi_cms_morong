@@ -65,7 +65,7 @@
                 <!-- Footer Text -->
                 <div
                     class="absolute bottom-4 lg:bottom-10 left-0 w-full text-center text-[8px] lg:text-[10px] opacity-40 font-light tracking-widest uppercase hidden lg:block">
-                    &copy; {{ date('Y') }} IFI Morong. Secure System.
+                    &copy; {{ date('Y') }} {{ str_replace(["\r", "\n"], ' ', $global_settings['system_name'] ?? 'Iglesia Filipina Independiente') }}, All rights reserved.
                 </div>
             </div>
         </div>

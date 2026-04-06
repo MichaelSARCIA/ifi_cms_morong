@@ -100,7 +100,7 @@ class SacramentController extends Controller
             $filenameSafeLabel = preg_replace('/[^a-zA-Z0-9]+/', '_', $serviceName);
             $filename = $filenameSafeLabel . '_Certificate_' . preg_replace('/[^a-zA-Z0-9]+/', '_', $service->last_name) . '.pdf';
 
-            AuditLogger::log('Print Certificate', 'Generated/Printed ' . $serviceName . ' Certificate for ' . trim($fullName));
+            AuditLogger::log('Print Certificate', 'Generated/Printed ' . $serviceName . ' Certificate for ' . trim($service->subject_name));
 
             return $pdf->stream($filename);
 

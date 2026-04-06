@@ -17,6 +17,11 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/air-datepicker@3.4.0/air-datepicker.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/air-datepicker@3.4.0/air-datepicker.min.js"></script>
+    <style>
+        /* Ensure AirDatepicker appears above modals (z-50 = 50) */
+        .air-datepicker-global-container { z-index: 9999 !important; }
+        .air-datepicker { z-index: 9999 !important; }
+    </style>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -231,14 +236,14 @@
         }
 
         // Wrapper for the legacy/inline calls (like in Logout)
-        window.showConfirm = function (title, message, btnClass, callback, confirmText = 'Confirm', cancelText = 'Cancel') {
+        window.showConfirm = function (title, message, btnClass, callback, confirmText = 'Confirm', cancelText = 'Cancel', isAlert = false) {
             window.showConfirmModal({
                 title: title,
                 message: message,
                 btnClass: btnClass,
                 confirmText: confirmText,
                 cancelText: cancelText,
-                isAlert: false,
+                isAlert: isAlert,
                 onConfirm: callback
             });
         }
@@ -363,13 +368,16 @@
                 },
                 clearFilters() {
                     this.$root.querySelectorAll('form').forEach(f => {
-                        f.querySelectorAll('select, input[type="date"]').forEach(el => {
-                            if (el.name !== 'per_page') {
+                        // Clear all selects and date inputs except for per_page and search
+                        f.querySelectorAll('select, input[type="date"], .datepicker-input').forEach(el => {
+                            if (el.name !== 'per_page' && el.name !== 'search') {
                                 el.value = '';
+                                
+                                // For AirDatepicker, we might need to clear the instance if it exists
+                                if (el.datepicker) {
+                                    el.datepicker.clear();
+                                }
                             }
-                        });
-                        f.querySelectorAll('.datepicker-input').forEach(el => {
-                            el.value = '';
                         });
                     });
                     this.submitSearch();
@@ -404,6 +412,31 @@
                 }
             };
         });
+    });
+
+    // Auto Logout after 120 minutes of inactivity
+    document.addEventListener('DOMContentLoaded', function () {
+        let inactivityTime = function () {
+            let time;
+            const logoutTime = 120 * 60 * 1000; // 120 minutes in milliseconds
+            
+            window.onload = resetTimer;
+            document.onmousemove = resetTimer;
+            document.onkeydown = resetTimer;
+            document.onclick = resetTimer;
+            document.onscroll = resetTimer;
+
+            function logout() {
+                window.location.href = '{{ route("logout") }}';
+            }
+
+            function resetTimer() {
+                clearTimeout(time);
+                time = setTimeout(logout, logoutTime);
+            }
+        };
+        
+        inactivityTime();
     });
     </script>
     @stack('scripts')

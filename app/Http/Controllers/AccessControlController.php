@@ -128,6 +128,17 @@ class AccessControlController extends Controller
         return redirect()->route('users', ['tab' => 'archived'])->with('success', 'User restored successfully.');
     }
 
+    public function forceDelete($id)
+    {
+        $user = User::withTrashed()->findOrFail($id);
+        $name = $user->name;
+        $user->forceDelete();
+
+        AuditLogger::log('Permanent Delete User', 'Permanently deleted user: ' . $name);
+
+        return redirect()->route('users', ['tab' => 'archived'])->with('success', 'User permanently deleted.');
+    }
+
     public function getUserStatuses()
     {
         // Get all users with their ID, Status, and Last Seen

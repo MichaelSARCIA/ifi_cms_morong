@@ -49,15 +49,18 @@ class FinanceController extends Controller
             'type' => 'required',
             'amount' => 'required|numeric',
             'date_received' => 'required|date|before_or_equal:today',
-            'remarks' => 'nullable'
+            'remarks' => 'required|string',
+            'notes' => 'nullable|string'
         ]);
 
         DB::table('donations')->insert([
             'type' => $validated['type'],
             'amount' => $validated['amount'],
+            'reference_number' => null,
             'donor_name' => 'Anonymous',
             'date_received' => $validated['date_received'],
-            'remarks' => $validated['remarks'] ?? '',
+            'remarks' => $validated['remarks'],
+            'notes' => $validated['notes'] ?? null,
             'created_at' => now(),
             'updated_at' => now()
         ]);
@@ -82,7 +85,7 @@ class FinanceController extends Controller
                     'service_types.payment_methods as allowed_payment_methods',
                     'service_types.id as service_type_config_id'
                 ])
-                ->whereNotIn('service_requests.status', ['Cancelled', 'Declined']);
+                ->whereNotIn('service_requests.status', ['Pending', 'For Priest Review', 'Cancelled', 'Declined']);
 
             // Filters
             if ($request->filled('search')) {
@@ -120,7 +123,12 @@ class FinanceController extends Controller
         } else {
             // Donations: Original logic
             $query = DB::table('donations')->orderBy('created_at', 'desc');
-            $query->whereIn('type', ['Donation', 'General Donation', 'Tithes', 'Love Offering', 'Others', 'Other']);
+            $query->whereIn('type', [
+                'Donation', 'General Donation', 'Tithes', 'Love Offering',
+                'Building Fund', 'Fiesta Sponsorship', 'Charity / Outreach',
+                'Youth Ministry', 'Memorial / Candle Offering', 'Flower / Altar Offering',
+                'Mission Fund', 'Others', 'Other'
+            ]);
 
             if ($request->filled('search')) {
                 $search = $request->search;
@@ -153,21 +161,35 @@ class FinanceController extends Controller
     public function storeDonation(Request $request)
     {
         $validated = $request->validate([
-            'donor_name' => 'required',
-            'type' => 'required',
-            'amount' => 'required|numeric',
-            'date_received' => 'required|date|before_or_equal:today',
-            'remarks' => 'nullable|string'
+            'donor_name'       => 'required',
+            'type'             => 'required',
+            'amount'           => 'required|numeric',
+            'date_received'    => 'required|date|before_or_equal:today',
+            'payment_method'   => 'required|string',
+            'reference_number' => [
+                'nullable',
+                'string',
+                function ($attribute, $value, $fail) {
+                    if (\Illuminate\Support\Facades\DB::table('payments')->where('reference_number', $value)->exists() || 
+                        \Illuminate\Support\Facades\DB::table('donations')->where('reference_number', $value)->exists()) {
+                        $fail('The reference number has already been used in another transaction.');
+                    }
+                },
+            ],
+            'remarks'          => 'nullable|string'
         ]);
 
         DB::table('donations')->insert([
-            'type' => $validated['type'],
-            'amount' => $validated['amount'],
-            'donor_name' => $validated['donor_name'],
-            'date_received' => $validated['date_received'],
-            'remarks' => $validated['remarks'] ?? '', // Save remarks (Service Name)
-            'created_at' => now(),
-            'updated_at' => now()
+            'type'             => $validated['type'],
+            'amount'           => $validated['amount'],
+            'reference_number' => $validated['reference_number'] ?? null,
+            'donor_name'       => $validated['donor_name'],
+            'date_received'    => $validated['date_received'],
+            'payment_method'   => $validated['payment_method'],
+            'remarks'          => $validated['remarks'] ?? '',
+            'notes'            => null,
+            'created_at'       => now(),
+            'updated_at'       => now()
         ]);
 
         AuditLogger::log('Add Donation', "Recorded donation from " . $validated['donor_name'] . " amount: ₱" . number_format($validated['amount'], 2));
@@ -181,7 +203,16 @@ class FinanceController extends Controller
     {
         $validated = $request->validate([
             'payment_method'   => 'required|string',
-            'reference_number' => 'nullable|string',
+            'reference_number' => [
+                'nullable',
+                'string',
+                function ($attribute, $value, $fail) {
+                    if (\Illuminate\Support\Facades\DB::table('payments')->where('reference_number', $value)->exists() || 
+                        \Illuminate\Support\Facades\DB::table('donations')->where('reference_number', $value)->exists()) {
+                        $fail('The reference number has already been used in another transaction.');
+                    }
+                },
+            ],
             'amount'           => 'required|numeric|min:0',
             'amount_tendered'  => 'nullable|numeric|min:0',
         ]);

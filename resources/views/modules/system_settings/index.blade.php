@@ -6,6 +6,15 @@
 @section('role_label', Auth::user()->role)
 
 @section('content')
+    <style>
+        @keyframes field-flash {
+            0% { background-color: rgba(59, 130, 246, 0.15); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4); }
+            100% { background-color: transparent; box-shadow: none; }
+        }
+        .animate-field-highlight {
+            animation: field-flash 1.5s ease-out forwards;
+        }
+    </style>
     <div x-data="serviceSettings"
         class="flex-1 flex flex-col h-full overflow-hidden">
 
@@ -500,7 +509,7 @@
                                                     <i class="fas fa-download text-xs"></i>
                                                 </a>
                                                 <a href="{{ route('system-settings.backup.delete', $backup['name']) }}"
-                                                    onclick="event.preventDefault(); window.showConfirm('Delete Backup', 'Are you sure you want to delete this backup archive?', 'bg-red-600 hover:bg-red-700', () => { window.location.href = '{{ route('system-settings.backup.delete', $backup['name']) }}'; }, 'Delete')"
+                                                    onclick="event.preventDefault(); window.showConfirm('Delete Backup', 'Caution: Are you sure you want to permanently delete this database backup? This action cannot be undone.', 'bg-red-600 hover:bg-red-700', () => { window.location.href = '{{ route('system-settings.backup.delete', $backup['name']) }}'; }, 'Delete')"
                                                     class="w-8 h-8 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-500 hover:text-red-600 hover:border-red-300 hover:bg-red-50 flex items-center justify-center tooltip transition-all"
                                                     title="Delete">
                                                     <i class="fas fa-trash-alt text-xs"></i>
@@ -524,6 +533,12 @@
                                 @endforelse
                             </tbody>
                         </table>
+                    </div>
+                    <div class="px-6 py-4 bg-gray-50/50 dark:bg-gray-900/30 border-t border-gray-100 dark:border-gray-800">
+                        <p class="text-xs text-gray-500 italic flex items-center gap-1.5">
+                            <i class="fas fa-info-circle text-blue-500"></i>
+                            Scheduled backups will automatically appear in this list once they are processed by the server.
+                        </p>
                     </div>
                 </div>
 
@@ -743,17 +758,7 @@
             <!-- PAYMENT METHODS MANAGEMENT -->
             <div x-show="activeTab === 'payment_methods'" x-transition:enter="transition ease-out duration-200"
                 x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
-                class="max-w-6xl mx-auto space-y-6"
-                x-data="{
-                    pmModalOpen: false,
-                    pmEditMode: false,
-                    pmMethod: { id: null, name: '', icon: 'fa-money-bill', sort_order: 0 },
-                    openPmModal(isEdit, method) {
-                        this.pmEditMode = isEdit;
-                        this.pmMethod = isEdit ? { ...method } : { id: null, name: '', icon: 'fa-money-bill', sort_order: 0 };
-                        this.pmModalOpen = true;
-                    }
-                }">
+                class="max-w-6xl mx-auto space-y-6">
 
                 <!-- Header -->
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -973,14 +978,7 @@
                                     </div>
                                 </div>
 
-                                <!-- Sort Order -->
-                                <div>
-                                    <label class="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Sort Order</label>
-                                    <input type="number" name="sort_order" x-model="pmMethod.sort_order" min="0"
-                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-gray-900 dark:text-white"
-                                        placeholder="0 = first">
-                                    <p class="text-xs text-gray-400 mt-1">Lower number = appears first in the list.</p>
-                                </div>
+
 
                                 <!-- Active toggle -->
                                 <div class="flex items-center justify-between pt-2">
@@ -1207,6 +1205,7 @@
                                 <div class="flex flex-col bg-gray-50 dark:bg-gray-900 p-2 rounded-lg border border-gray-200 dark:border-gray-700 transition-all duration-200 relative"
                                     :class="{ 
                                         'opacity-50 dashed border-2 border-primary': draggingIndex === index, 
+                                        'animate-field-highlight': field.is_new,
                                         'border-l-4 border-l-blue-500': field.origin === 'Baptism',
                                         'border-l-4 border-l-pink-500': field.origin === 'Wedding',
                                         'border-l-4 border-l-gray-500': field.origin === 'Burial',
@@ -1215,19 +1214,34 @@
                                     }">
                                     
                                     <div class="flex items-start gap-2 w-full">
-                                        <div class="mt-2 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 px-1 shrink-0"
-                                            draggable="true" @dragstart="draggingIndex = index" @dragover.prevent
-                                            @drop="drop(index)" @dragend="draggingIndex = null">
-                                            <i class="fas fa-grip-vertical"></i>
+                                        <div class="flex items-center gap-2 shrink-0 pr-1">
+                                            <div class="flex flex-col gap-0.5 border-r border-gray-200 dark:border-gray-800 pr-1.5 mr-1.5">
+                                                <button type="button" @click="moveUp(index)" 
+                                                    :class="index === 0 ? 'opacity-20 cursor-not-allowed' : 'hover:text-primary-600'" 
+                                                    :disabled="index === 0" 
+                                                    class="text-[11px] text-gray-400 transition-colors" title="Move Up">
+                                                    <i class="fas fa-chevron-up"></i>
+                                                </button>
+                                                <button type="button" @click="moveDown(index)" 
+                                                    :class="index === fields.length - 1 ? 'opacity-20 cursor-not-allowed' : 'hover:text-primary-600'" 
+                                                    :disabled="index === fields.length - 1" 
+                                                    class="text-[11px] text-gray-400 transition-colors" title="Move Down">
+                                                    <i class="fas fa-chevron-down"></i>
+                                                </button>
+                                            </div>
+                                            <div class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
+                                                draggable="true" @dragstart="draggingIndex = index" @dragover.prevent
+                                                @drop="drop(index)" @dragend="draggingIndex = null">
+                                                <i class="fas fa-grip-vertical"></i>
+                                            </div>
                                         </div>
                                     <div class="grid grid-cols-2 gap-2 flex-1">
                                         <input type="text" x-model="field.label" placeholder="Field Label (e.g. Birth Date)"
+                                            :id="'field_label_' + (field.id || index)"
                                             class="text-sm px-2 py-1 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                                            required>
+                                            required px-1>
                                         <select x-model="field.type"
-                                            class="dropdown-btn text-sm px-2 py-1"
-                                            :disabled="field.is_standard"
-                                            :class="field.is_standard ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-50' : ''">
+                                            class="dropdown-btn text-sm px-2 py-1">
                                             <option value="text">Text Input</option>
                                             <option value="date">Date Picker</option>
                                             <option value="number">Number</option>
@@ -1393,8 +1407,27 @@
                                                 </div>
                                                 <div x-show="!['Middle Name', 'Middle Initial'].includes(field.label)">
                                                     <input type="text"
-                                                        class="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
-                                                        placeholder="Your Answer">
+                                                        x-data="{ 
+                                                            val: '',
+                                                            touched: false,
+                                                            isContact: field.label.toLowerCase().includes('contact'),
+                                                            get invalid() {
+                                                                if (!this.touched) return false;
+                                                                if (field.required && !this.val) return true;
+                                                                if (this.isContact && this.val && this.val.length < 11) return true;
+                                                                return false;
+                                                            }
+                                                        }"
+                                                        x-model="val"
+                                                        @blur="touched = true"
+                                                        @input="if(isContact) { touched = true; val = val.replace(/[^0-9]/g, '').slice(0, 11); }"
+                                                        :maxlength="isContact ? 11 : ''"
+                                                        :class="invalid ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/50 dark:bg-red-900/10' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900'"
+                                                        class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+                                                        :placeholder="isContact ? '09XXXXXXXXX' : 'Your Answer'">
+                                                    <p x-show="invalid" class="text-[10px] text-red-500 mt-1 font-bold">
+                                                        <span x-text="!val && field.required ? 'This field is required.' : (isContact ? 'Contact number must be exactly 11 digits.' : '')"></span>
+                                                    </p>
                                                 </div>
                                             </div>
                                         </template>
@@ -1475,36 +1508,6 @@
             </div>
         </div>
 
-        <!-- Notification Modal (Alert Replacement) -->
-        <div x-show="notificationModalOpen"
-            x-on:show-notification.window="notificationMessage = $event.detail.message; notificationType = $event.detail.type || 'info'; notificationModalOpen = true"
-            class="fixed inset-0 z-[90] overflow-y-auto" style="display: none;">
-            <div class="fixed inset-0 bg-black/50 backdrop-blur-sm" @click="notificationModalOpen = false"></div>
-            <div class="relative min-h-screen flex items-center justify-center p-4">
-                <div
-                    class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-6 relative animate-fade-in-up text-center">
-                    <button type="button" @click="notificationModalOpen = false"
-                        class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all z-10">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-                        :class="notificationType === 'success' ? 'bg-green-100 text-green-600' : (notificationType === 'error' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600')">
-                        <i class="fas text-2xl"
-                            :class="notificationType === 'success' ? 'fa-check' : (notificationType === 'error' ? 'fa-exclamation-triangle' : 'fa-info')"></i>
-                    </div>
-                    <h3 class="font-bold text-lg text-gray-900 dark:text-white mb-2"
-                        x-text="notificationType === 'success' ? 'Tagumpay!' : (notificationType === 'error' ? 'May Error' : 'Impormasyon')">
-                    </h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-6" x-text="notificationMessage"></p>
-                    <button @click="notificationModalOpen = false"
-                        class="w-full py-2.5 rounded-xl font-bold text-white shadow-lg transition-all"
-                        :class="notificationType === 'success' ? 'bg-green-600 hover:bg-green-700' : (notificationType === 'error' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700')">
-                        OK
-                    </button>
-                </div>
-            </div>
-        </div>
-
         <!-- Delete Preset Confirmation Modal -->
         <div x-show="deletePresetModalOpen" class="fixed inset-0 z-[80] overflow-y-auto" style="display: none;">
             <div class="fixed inset-0 bg-black/50 backdrop-blur-sm" @click="deletePresetModalOpen = false"></div>
@@ -1564,12 +1567,21 @@ document.addEventListener('alpine:init', () => {
         customPresets: JSON.parse(localStorage.getItem('user_service_presets') || '{}'),
         savePresetModalOpen: false,
         deletePresetModalOpen: false,
+        // Modal states handled by layouts.app global modal
         notificationModalOpen: false,
-        notificationMessage: '',
-        notificationType: 'info',
         newPresetName: '',
         presetToDelete: null,
         draggingIndex: null,
+
+        // Payment Methods Management
+        pmModalOpen: false,
+        pmEditMode: false,
+        pmMethod: { id: null, name: '', icon: 'fa-money-bill', sort_order: 0 },
+        openPmModal(isEdit, method) {
+            this.pmEditMode = isEdit;
+            this.pmMethod = isEdit ? { ...method } : { id: null, name: '', icon: 'fa-money-bill', sort_order: 0 };
+            this.pmModalOpen = true;
+        },
 
         openServiceModal(isEdit, serviceData) {
             this.editMode = isEdit;
@@ -1652,8 +1664,36 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        addField() { this.fields.push({ id: 'fld_' + Date.now() + Math.random().toString(36).substring(7), label: '', type: 'text', required: false }); },
+        addField() { 
+            const newId = 'fld_' + Date.now() + Math.random().toString(36).substring(7);
+            this.fields.push({ id: newId, label: '', type: 'text', required: false, is_new: true }); 
+            this.$nextTick(() => {
+                const el = document.getElementById('field_label_' + newId);
+                if (el) {
+                    el.focus();
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                setTimeout(() => {
+                    const idx = this.fields.findIndex(f => f.id === newId);
+                    if (idx !== -1) this.fields[idx].is_new = false;
+                }, 2000);
+            });
+        },
         removeField(index) { this.fields.splice(index, 1); },
+        moveUp(index) {
+            if (index > 0) {
+                const item = this.fields[index];
+                this.fields.splice(index, 1);
+                this.fields.splice(index - 1, 0, item);
+            }
+        },
+        moveDown(index) {
+            if (index < this.fields.length - 1) {
+                const item = this.fields[index];
+                this.fields.splice(index, 1);
+                this.fields.splice(index + 1, 0, item);
+            }
+        },
         clearFields() { this.fields = []; },
 
         drop(targetIndex) {
@@ -1665,9 +1705,15 @@ document.addEventListener('alpine:init', () => {
         },
 
         showNotification(msg, type) {
-            this.notificationMessage = msg;
-            this.notificationType = type || 'info';
-            this.notificationModalOpen = true;
+            window.showConfirm(
+                type === 'success' ? 'Success!' : (type === 'error' ? 'Error' : 'Information'),
+                msg,
+                type === 'success' ? 'bg-green-600 hover:bg-green-700' : (type === 'error' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'),
+                null, 
+                'OK', 
+                '', 
+                true
+            );
         },
 
         saveAsPreset() {
@@ -1749,9 +1795,24 @@ document.addEventListener('alpine:init', () => {
         applyCustomPreset(name) {
             const presetFields = this.customPresets[name];
             if (!presetFields) return;
+            const now = Date.now();
             const newFields = presetFields.filter(nf => !this.fields.some(ef => ef.label === nf.label))
-                                          .map((f, i) => ({ ...f, origin: name, id: 'preset_' + Date.now() + '_' + i }));
-            this.fields = [...this.fields, ...newFields];
+                                          .map((f, i) => ({ ...f, origin: name, id: 'preset_' + now + '_' + i, is_new: true }));
+            
+            if (newFields.length > 0) {
+                this.fields = [...this.fields, ...newFields];
+                this.$nextTick(() => {
+                    const firstNewId = newFields[0].id;
+                    const el = document.getElementById('field_label_' + firstNewId);
+                    if (el) {
+                        el.focus();
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    setTimeout(() => {
+                        this.fields.forEach(f => { if (f.is_new) f.is_new = false; });
+                    }, 2000);
+                });
+            }
         },
 
         applyPreset(type) {
@@ -1835,9 +1896,24 @@ document.addEventListener('alpine:init', () => {
                 ]
             };
             if (presets[type]) {
+                const now = Date.now();
                 const newFields = presets[type].filter(nf => !this.fields.some(ef => ef.label === nf.label))
-                                               .map((f, i) => ({ ...f, id: 'syspreset_' + Date.now() + '_' + i }));
-                this.fields = [...this.fields, ...newFields];
+                                               .map((f, i) => ({ ...f, id: 'syspreset_' + now + '_' + i, is_new: true }));
+                
+                if (newFields.length > 0) {
+                    this.fields = [...this.fields, ...newFields];
+                    this.$nextTick(() => {
+                        const firstNewId = newFields[0].id;
+                        const el = document.getElementById('field_label_' + firstNewId);
+                        if (el) {
+                            el.focus();
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                        setTimeout(() => {
+                            this.fields.forEach(f => { if (f.is_new) f.is_new = false; });
+                        }, 2000);
+                    });
+                }
             }
             this.confirmModalOpen = false;
         },
@@ -1903,7 +1979,7 @@ document.addEventListener('alpine:init', () => {
             if (!this.selectedPriest) return;
             
             if (this.formData.working_days.length === 0) {
-                Alpine.store('serviceSettings').showNotification('Please select at least one working day.', 'error');
+                window.showConfirm('Information', 'Please select at least one working day.', 'bg-red-600', null, 'OK', '', true);
                 return;
             }
 
@@ -1931,19 +2007,13 @@ document.addEventListener('alpine:init', () => {
                         this.priests[idx].max_services_per_day = this.formData.max_services_per_day;
                     }
 
-                    window.dispatchEvent(new CustomEvent('show-notification', {
-                        detail: { message: 'Matagumpay na na-update ang iskedyul ng pari!', type: 'success' }
-                    }));
+                    window.showConfirm('Success!', 'Priest schedule updated successfully!', 'bg-green-600 hover:bg-green-700', null, 'OK', '', true);
                 } else {
-                    window.dispatchEvent(new CustomEvent('show-notification', {
-                        detail: { message: result.message || 'Validation Error', type: 'error' }
-                    }));
+                    window.showConfirm('Error', result.message || 'Validation Error', 'bg-red-600 hover:bg-red-700', null, 'OK', '', true);
                 }
             } catch (error) {
                 console.error(error);
-                window.dispatchEvent(new CustomEvent('show-notification', {
-                    detail: { message: 'May naganap na error habang sino-save. Subukan ulit.', type: 'error' }
-                }));
+                window.showConfirm('Error', 'An error occurred while saving. Please try again.', 'bg-red-600 hover:bg-red-700', null, 'OK', '', true);
             } finally {
                 this.isSaving = false;
             }

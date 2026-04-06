@@ -11,7 +11,7 @@
 @section('content')
     <!-- ACTION BAR -->
     <div class="flex justify-end shrink-0 mb-6">
-        <button onclick="document.getElementById('addModal').classList.remove('hidden')"
+        <button onclick="openCollectionModal()"
             class="flex items-center gap-2 bg-gradient-to-r from-primary to-blue-600 hover:from-blue-700 hover:to-primary text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-all transform hover:-translate-y-0.5 shrink-0 ml-auto lg:ml-0">
             <i class="fas fa-plus"></i> Record Collection
         </button>
@@ -55,14 +55,13 @@
         </div>
 
         <div class="bg-white dark:bg-gray-800 rounded-b-3xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden search-results-container relative" @click="handlePagination">
-            <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead
-                    class="bg-gray-50/50 dark:bg-gray-700/30 text-sm font-bold text-gray-400 uppercase border-b border-gray-100 dark:border-gray-700">
+            <div class="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] custom-scrollbar">
+            <table class="w-full text-left border-collapse relative">
+                <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 text-sm font-bold text-gray-400 uppercase border-b border-gray-100 dark:border-gray-700">
                     <tr>
                         <th class="px-6 py-4">Date</th>
                         <th class="px-6 py-4">Type</th>
-                        <th class="px-6 py-4">Source/Remarks</th>
+                        <th class="px-6 py-4">Source & Notes</th>
                         <th class="px-6 py-4 text-right">Amount</th>
                     </tr>
                 </thead>
@@ -87,8 +86,11 @@
                                     {{ $typeConfig['label'] }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 italic">
-                                {{ $row->remarks }}
+                            <td class="px-6 py-4">
+                                <div class="text-sm font-bold text-gray-900 dark:text-gray-100">{{ $row->remarks }}</div>
+                                @if(isset($row->notes) && $row->notes)
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 italic mt-0.5">{{ $row->notes }}</div>
+                                @endif
                             </td>
                             <td class="px-6 py-4 text-right font-bold text-lg text-gray-900 dark:text-white">₱
                                 {{ number_format($row->amount, 2) }}
@@ -133,10 +135,9 @@
                 <div class="space-y-4">
                     <div>
                         <label
-                            class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Type</label>
+                            class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Type <span class="text-red-500">*</span></label>
                         <div class="relative group">
-                            <select name="type"
-                                class="dropdown-btn w-full">
+                            <select name="type" class="dropdown-btn w-full">
                                 <option value="Sunday Collection">Sunday Collection</option>
                                 <option value="Mass Offering">Mass Offering</option>
                                 <option value="Special Collection">Special Collection</option>
@@ -146,40 +147,108 @@
                     </div>
                     <div>
                         <label
-                            class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Amount
-                            (₱)</label>
+                            class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Amount 
+                            (₱) <span class="text-red-500">*</span></label>
                         <div class="relative">
-                            <span class="absolute left-4 top-3.5 text-gray-400">₱</span>
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <span class="text-gray-500 font-bold">₱</span>
+                            </div>
                             <input type="number" step="0.01" name="amount"
-                                class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl pl-8 pr-4 py-3 text-sm font-bold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-primary transition-all"
+                                class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-3 text-sm font-bold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-primary transition-all"
                                 required placeholder="0.00">
                         </div>
                     </div>
                     <div>
                         <label
-                            class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Date</label>
-                        <input type="date" name="date_received"
-                            class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-primary transition-all"
-                            required value="{{ date('Y-m-d') }}">
+                            class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Date <span class="text-red-500">*</span></label>
+                        <div class="relative">
+                            <input type="text" name="date_received" id="collectionDateInput"
+                                placeholder="MM/DD/YYYY"
+                                readonly required
+                                class="datepicker-input w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white placeholder-gray-400">
+                            <i class="fas fa-calendar-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                        </div>
                     </div>
                     <div>
                         <label
-                            class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Remarks
-                            / Source</label>
-                        <textarea name="remarks"
-                            class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-primary transition-all resize-none"
-                            rows="3" placeholder="e.g. 1st Mass, 6:00 AM"></textarea>
+                            class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Source <span class="text-red-500">*</span></label>
+                        <div class="relative group">
+                            <select name="remarks" required class="dropdown-btn w-full">
+                                <option value="">Select source...</option>
+                                <option value="1st Mass (6:00 AM)">1st Mass (6:00 AM)</option>
+                                <option value="2nd Mass (8:00 AM)">2nd Mass (8:00 AM)</option>
+                                <option value="3rd Mass (10:00 AM)">3rd Mass (10:00 AM)</option>
+                                <option value="Walk-in / Drop box">Walk-in / Drop box</option>
+                                <option value="Others">Others</option>
+                            </select>
+                        </div>
                     </div>
-                    <button type="submit"
-                        class="w-full bg-gradient-to-r from-primary to-blue-600 hover:from-blue-700 hover:to-primary text-white font-bold py-3.5 rounded-xl mt-2 shadow-lg shadow-blue-500/30 transition-all transform hover:-translate-y-0.5">
-                        Save Record
-                    </button>
+                    <div>
+                        <label
+                            class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Notes (Optional)</label>
+                        <textarea name="notes"
+                            class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-primary transition-all resize-none"
+                            rows="2" placeholder="Additional notes or details..."></textarea>
+                    </div>
+                    <div class="flex gap-3 mt-4">
+                        <button type="button" onclick="document.getElementById('addModal').classList.add('hidden')"
+                            class="w-1/2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold py-3.5 rounded-xl transition-colors">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                            class="w-1/2 bg-gradient-to-r from-primary to-blue-600 hover:from-blue-700 hover:to-primary text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/30 transition-all transform hover:-translate-y-0.5">
+                            Save Record
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
     </div>
 
     <script>
+        let collectionDatepicker = null;
+
+        function createCollectionDatepicker(el) {
+            return new AirDatepicker(el, {
+                locale: {
+                    days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+                    daysShort: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+                    daysMin: ['Su','Mo','Tu','We','Th','Fr','Sa'],
+                    months: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+                    monthsShort: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+                    today: 'Today', clear: 'Clear',
+                    dateFormat: 'MM/dd/yyyy', timeFormat: 'hh:ii aa', firstDay: 0
+                },
+                dateFormat: 'MM/dd/yyyy',
+                autoClose: true,
+                buttons: ['today'],
+                position: 'bottom left',
+                maxDate: new Date(),
+                onSelect: ({ date }) => {
+                    if (date) {
+                        const tzOffset = date.getTimezoneOffset() * 60000;
+                        el.value = (new Date(date - tzOffset)).toISOString().slice(0, 10);
+                    } else {
+                        el.value = '';
+                    }
+                }
+            });
+        }
+
+        function openCollectionModal() {
+            document.getElementById('addModal').classList.remove('hidden');
+            const el = document.getElementById('collectionDateInput');
+            if (el && !collectionDatepicker) {
+                collectionDatepicker = createCollectionDatepicker(el);
+                // Reposition calendar on modal scroll so it follows the input
+                document.getElementById('addModal').addEventListener('scroll', () => {
+                    if (collectionDatepicker && collectionDatepicker.visible) {
+                        collectionDatepicker.show();
+                    }
+                }, { passive: true });
+            }
+        }
+
         function confirmcollectionSubmit(event, form) {
             event.preventDefault();
             showConfirm(

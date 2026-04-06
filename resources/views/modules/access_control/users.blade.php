@@ -8,7 +8,7 @@
     <div class="flex flex-col" x-data="{ 
                                                                                         userModalOpen: {{ $errors->any() ? 'true' : 'false' }}, 
                                                                                         editMode: false, 
-                                                                                        user: { role: '', working_days: [], working_hours: { start: '08:00', end: '17:00' }, max_services_per_day: 5 },
+                                                                                        user: { role: '', password: '', working_days: [], working_hours: { start: '08:00', end: '17:00' }, max_services_per_day: 5 },
                                                                                         roles: {{ json_encode($roles) }},
                                                                                         statuses: {},
                                                                                         getStatus(id, isOnlineDefault) {
@@ -61,7 +61,7 @@
                 </div>
 
                 @if($tab === 'active')
-                    <button @click="userModalOpen = true; editMode = false; user = { role: '', working_days: [], working_hours: { start: '08:00', end: '17:00' }, max_services_per_day: 5 }"
+                    <button @click="userModalOpen = true; editMode = false; user = { role: '', password: '', working_days: [], working_hours: { start: '08:00', end: '17:00' }, max_services_per_day: 5 }"
                         class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center gap-2">
                         <i class="fas fa-user-plus"></i> <span>Create Account</span>
                     </button>
@@ -153,6 +153,7 @@
                                                                                                                                                                                                                                                                                                                                                                                      title: '{{ addslashes($u->title ?? "") }}',
                                                                                                                                                                                                                                                                                                                                                                                      email: '{{ addslashes($u->email) }}', 
                                                                                                                                                                                                                                                                                                                                                                                      role: '{{ $u->role }}',
+                                                                                                                                                                                                                                                                                                                                                                                     password: '',
                                                                                                                                                                                                                                                                                                                                                                                      working_days: {{ json_encode($u->working_days ?? []) }},
                                                                                                                                                                                                                                                                                                                                                                                      working_hours: {{ json_encode($u->working_hours ?? ['start' => '08:00', 'end' => '17:00']) }},
                                                                                                                                                                                                                                                                                                                                                                                      max_services_per_day: {{ $u->max_services_per_day ?? 5 }}
@@ -174,15 +175,27 @@
                                                     </form>
                                                 @endif
                                             @else
-                                                <form action="{{ route('users.restore', $u->id) }}" method="POST" class="inline"
-                                                    onsubmit="event.preventDefault(); showConfirm('Restore User', 'Are you sure you want to restore this user?', 'bg-green-600 hover:bg-green-700', () => this.submit(), 'Restore')">
-                                                    @csrf
-                                                    <button type="submit"
-                                                        class="w-8 h-8 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 hover:bg-green-100 transition-colors flex items-center justify-center"
-                                                        title="Restore">
-                                                        <i class="fas fa-undo"></i>
-                                                    </button>
-                                                </form>
+                                                <div class="flex justify-end gap-2">
+                                                    <form action="{{ route('users.restore', $u->id) }}" method="POST" class="inline"
+                                                        onsubmit="event.preventDefault(); showConfirm('Restore User', 'Are you sure you want to restore this user?', 'bg-green-600 hover:bg-green-700', () => this.submit(), 'Restore')">
+                                                        @csrf
+                                                        <button type="submit"
+                                                            class="w-8 h-8 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 hover:bg-green-100 transition-colors flex items-center justify-center"
+                                                            title="Restore">
+                                                            <i class="fas fa-undo"></i>
+                                                        </button>
+                                                    </form>
+
+                                                    <form action="{{ route('users.force-delete', $u->id) }}" method="POST" class="inline"
+                                                        onsubmit="event.preventDefault(); showConfirm('Delete User', 'Warning: This will permanently delete the user account. This action cannot be undone.', 'bg-red-600 hover:bg-red-700', () => this.submit(), 'Permanently Delete')">
+                                                        @csrf @method('DELETE')
+                                                        <button type="submit"
+                                                            class="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 transition-colors flex items-center justify-center"
+                                                            title="Permanent Delete">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
                                             @endif
                                         </div>
                                     </td>
@@ -223,6 +236,16 @@
                     @endif
 
                     <form :action="editMode ? '{{ url('users') }}/' + user.id : '{{ route('users.store') }}'" method="POST"
+                        @submit="
+                            if (!editMode || user.password) {
+                                if (user.password && user.password.length < 8) {
+                                    $event.preventDefault();
+                                    $dispatch('show-toast', { type: 'error', message: 'Password must be at least 8 characters.' });
+                                    user.password = '';
+                                    return;
+                                }
+                            }
+                        "
                         class="space-y-4">
                         @csrf
                         <input type="hidden" name="_method" :value="editMode ? 'PUT' : 'POST'">
@@ -269,18 +292,51 @@
 
                         </div>
 
-                        <div x-show="!editMode" x-data="{ showPw: false }">
-                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                <span>Password</span>
+                        <div x-data="{ 
+                            showPw: false,
+                            get strength() {
+                                if (!user.password) return null;
+                                let score = 0;
+                                if (user.password.length >= 8) score++;
+                                if (/[A-Z]/.test(user.password)) score++;
+                                if (/[0-9]/.test(user.password)) score++;
+                                if (/[@$!%*#?&]/.test(user.password)) score++;
+                                
+                                if (user.password.length < 8) return { label: 'Weak', class: 'bg-red-500', width: '33%', textClass: 'text-red-500' };
+                                if (score <= 3) return { label: 'Medium', class: 'bg-amber-500', width: '66%', textClass: 'text-amber-500' };
+                                return { label: 'Strong', class: 'bg-green-500', width: '100%', textClass: 'text-green-500' };
+                            }
+                        }">
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex justify-between items-center">
+                                <span>Password <span x-show="editMode" class="text-xs font-normal text-gray-400 capitalize">(Leave blank to keep current)</span></span>
+                                <span class="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-tight">Min. 8 Characters</span>
                             </label>
                             <div class="relative">
-                                <input :type="showPw ? 'text' : 'password'" name="password" :required="!editMode"
-                                    class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                                <input :type="showPw ? 'text' : 'password'" name="password" x-model="user.password" :required="!editMode"
+                                    class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all pr-12"
+                                    placeholder="••••••••">
+
                                 <button type="button" @click="showPw = !showPw" 
                                     class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
                                     <i class="fas" :class="showPw ? 'fa-eye-slash' : 'fa-eye'"></i>
                                 </button>
                             </div>
+
+                            <!-- Strength Meter Below -->
+                            <div x-show="user.password" class="mt-3 bg-gray-50 dark:bg-gray-900/50 p-2.5 rounded-xl border border-gray-100 dark:border-gray-700/50 transition-all animate-fade-in">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Password Strength</span>
+                                    <span class="text-[10px] font-black uppercase tracking-tight" :class="strength.textClass" x-text="strength.label"></span>
+                                </div>
+                                <div class="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                    <div class="h-full transition-all duration-500" :class="strength.class" :style="'width: ' + strength.width"></div>
+                                </div>
+                            </div>
+                            
+                            <p x-show="user.password && user.password.length < 8" 
+                                class="text-xs text-red-500 mt-2 font-bold flex items-center gap-1 ml-1">
+                                <i class="fas fa-info-circle"></i> <span>Need at least 8 characters.</span>
+                            </p>
                         </div>
 
                         <div class="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">

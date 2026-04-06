@@ -8,6 +8,48 @@
 @section('content')
 @php
     $defaultServiceRequestsTab = Auth::user()->hasModule('service_requests_form') ? 'form' : (Auth::user()->hasModule('service_requests_records') ? 'records' : '');
+
+    if (!function_exists('getServiceSubject')) {
+        function getServiceSubject($req) {
+            $data = is_string($req->custom_data) ? json_decode($req->custom_data, true) : $req->custom_data;
+            if (!$data) return $req->applicant_name;
+
+            $type = strtolower($req->service_type);
+
+            // 1. General Rule: If there is an explicit "Applicant/Contact Person" in the form (like Baptism, Funeral, or Wedding), use that name.
+            foreach($data as $key => $val) {
+                if (str_contains($key, 'applicant') && trim($val) && strtolower($val) !== 'n/a') {
+                    if (str_contains($key, 'full_name')) return trim($val);
+                    if (str_contains($key, 'first_name')) {
+                        $prefix = str_replace('first_name', '', $key);
+                        $lnKey = $prefix . 'last_name';
+                        $full = trim(trim($val) . ' ' . trim($data[$lnKey] ?? ''));
+                        if ($full) return $full;
+                    }
+                }
+            }
+
+            // 3. Fallback to other Subjects (Deceased, Candidates, Wedding Subject)
+            $firstName = '';
+            $lastName = '';
+
+            if (str_contains($type, 'funeral') || str_contains($type, 'wake')) {
+                $firstName = $data['deceased_s_information_first_name'] ?? $data['deceased_details_first_name'] ?? '';
+                $lastName = $data['deceased_s_information_last_name'] ?? $data['deceased_details_last_name'] ?? '';
+            } elseif (str_contains($type, 'confirmation')) {
+                $firstName = $data['candidate_s_details_first_name'] ?? $data['candidate_details_first_name'] ?? '';
+                $lastName = $data['candidate_s_details_last_name'] ?? $data['candidate_details_last_name'] ?? '';
+            } elseif (str_contains($type, 'wedding')) {
+                $groom = trim(($data['groom_s_details_first_name'] ?? $data['groom_details_first_name'] ?? '') . ' ' . ($data['groom_s_details_last_name'] ?? $data['groom_details_last_name'] ?? ''));
+                $bride = trim(($data['bride_s_details_first_name'] ?? $data['bride_details_first_name'] ?? '') . ' ' . ($data['bride_s_details_last_name'] ?? $data['bride_details_last_name'] ?? ''));
+                if ($groom && $bride) return "$groom & $bride";
+                if ($groom || $bride) return $groom ?: $bride;
+            }
+
+            $fullName = trim($firstName . ' ' . $lastName);
+            return ($fullName && strtolower($fullName) !== strtolower($req->applicant_name)) ? $fullName : $req->applicant_name;
+        }
+    }
 @endphp
     <div x-data="{ 
                         ...requestManager(),
@@ -55,17 +97,17 @@
                                 </select>
                             </div>
 
-                            <div class="relative max-w-[150px] w-full lg:w-auto">
-                                <input type="text" name="date_filter" value="{{ request('date_filter') }}"
-                                    x-init="initAirDatepicker($el)" placeholder="Filter Date" readonly
-                                    class="datepicker-input w-full lg:w-36 pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer text-gray-700 dark:text-gray-300 transition-all">
-                                <i class="fas fa-calendar absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
-                            </div>
-
                             <div class="flex items-center gap-2">
+                                <div class="relative max-w-[150px] w-full lg:w-auto">
+                                    <input type="text" name="date_filter" value="{{ request('date_filter') }}"
+                                        x-init="initAirDatepicker($el)" placeholder="Filter Date" readonly
+                                        class="datepicker-input w-full lg:w-36 pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer text-gray-700 dark:text-gray-300 transition-all">
+                                    <i class="fas fa-calendar absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                                </div>
+
                                 @if(request()->anyFilled(['status', 'date_filter']))
                                     <button type="button" @click="clearFilters()"
-                                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-bold transition-all px-2 flex items-center gap-1">
+                                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-bold transition-all px-2 flex items-center gap-1 shrink-0">
                                         <i class="fas fa-times-circle"></i>Clear
                                     </button>
                                 @endif
@@ -90,7 +132,7 @@
                                     <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors group">
                                         <td class="px-6 py-4">
                                             <div class="font-bold text-gray-900 dark:text-white text-base">
-                                                {{ $req->applicant_name }}
+                                                {{ getServiceSubject($req) }}
                                             </div>
                                             <div class="text-xs text-gray-500 font-medium mt-0.5">
                                                 <i class="fas fa-phone mr-1 opacity-70"></i>
@@ -200,29 +242,30 @@
                             class="p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                             <div>
                                 <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                    <i class="fas {{ $selected_service->icon ?? 'fa-church' }} text-primary"></i>
-                                    {{ $selected_service->name }} Application
+                                    <i class="fas {{ ($selected_service->icon ?? '') ?: 'fa-church' }} text-primary"></i>
+                                    {{ $selected_service->name ?? 'Unknown' }} Application
                                 </h2>
                                 <p class="text-sm text-gray-500 mt-1">Please fill in all required details carefully.</p>
                             </div>
                             <span
                                 class="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-bold border border-green-200 dark:border-green-800">
-                                Fee: &#8369;{{ number_format($selected_service->fee, 2) }}
+                                Fee: &#8369;{{ number_format((float)($selected_service->fee ?? 0), 2) }}
                             </span>
                         </div>
 
-                        <form x-data="formPersistence('{{ $selected_service->name }}', {{ session('success') ? 'true' : 'false' }})"
+                        <form x-data="formPersistence('{{ $selected_service->name ?? 'Unknown' }}', {{ session('success') ? 'true' : 'false' }})"
                             @input.debounce.500ms="persist($event.target)" @change="persist($event.target)"
                             action="{{ route('service-requests.store') }}" method="POST"
                             class="px-6 pb-6 pt-0 space-y-8 mt-6 w-full">
                             @csrf
-                            <input type="hidden" name="service_type" value="{{ $selected_service->name }}">
+                            <input type="hidden" name="service_type" value="{{ $selected_service->name ?? '' }}">
 
                             @php
                                 $allFields = $selected_service->custom_fields ?? [];
                                 if (is_string($allFields)) {
                                     $allFields = json_decode($allFields, true) ?? [];
                                 }
+                                if (!is_array($allFields)) $allFields = [];
 
                                 // Ensure IDs exist for keys if missing
                                 foreach($allFields as $idx => &$fld) {
@@ -232,6 +275,7 @@
 
                             <!-- Dynamic Sacrament Details Section -->
                             <div class="grid grid-cols-1 md:grid-cols-12 gap-6 w-full">
+                                @php $currentHeaderSlug = ''; @endphp
                                 @forelse($allFields as $index => $field)
                                     @php
                                         $isRequired = !empty($field['required']);
@@ -239,6 +283,7 @@
                                         $type = $field['type'] ?? 'text';
 
                                         if ($type === 'header') {
+                                            $currentHeaderSlug = \Illuminate\Support\Str::slug($label, '_');
                                             $colSpan = 'col-span-1 md:col-span-12 mt-8 mb-2 first:mt-0';
                                         } elseif (in_array(strtolower($label), ['first name', 'middle name', 'middle initial', 'last name', 'suffix']) || str_contains(strtolower($label), "first name") || str_contains(strtolower($label), "middle name") || str_contains(strtolower($label), "middle initial") || str_contains(strtolower($label), "last name") || str_contains(strtolower($label), "suffix")) {
                                             if (str_contains(strtolower($label), "suffix")) {
@@ -259,15 +304,8 @@
                                             $colSpan = 'col-span-1 md:col-span-6';
                                         }
 
-                                        $fieldName = 'custom_data[' . \Illuminate\Support\Str::slug($label, '_') . ']';
-                                        $lowerLabel = strtolower($label);
-                                        // RELAXED ROOT MAPPING: We now use specific applicant fields at the bottom of the form.
-                                        // To avoid conflicts, we will keep dynamic fields in custom_data.
-                                        /* 
-                                        if (in_array($lowerLabel, ['first name', ...])) {
-                                            ... mapped to first_name ...
-                                        }
-                                        */
+                                        $labelSlug = \Illuminate\Support\Str::slug($label, '_');
+                                        $fieldName = 'custom_data[' . ($currentHeaderSlug ? $currentHeaderSlug . '_' . $labelSlug : $labelSlug) . ']';
                                     @endphp
 
                                     @if($type === 'header')
@@ -275,6 +313,8 @@
                                             <div class="flex items-center gap-3">
                                                 <h3 class="text-[12px] font-extrabold text-primary uppercase tracking-[0.2em] whitespace-nowrap">{{ $label }}</h3>
                                                 <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+
+
                                             </div>
                                         </div>
                                     @else
@@ -310,12 +350,59 @@
                                                     </div>
                                                 @else
                                                     <input type="text" name="{{ $fieldName }}" {{ $isRequired ? 'required' : '' }}
-                                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border {{ $hasError ? 'border-red-500 ring-2 ring-red-500/20' : 'border-gray-200 dark:border-gray-700' }} rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-gray-900 dark:text-white placeholder-gray-400"
-                                                        placeholder="">
+                                                        x-data="{ 
+                                                            val: '', 
+                                                            touched: false, 
+                                                            isContact: '{{ strtolower($label) }}'.includes('contact'),
+                                                            required: {{ $isRequired ? 'true' : 'false' }},
+                                                            get invalid() {
+                                                                if (!this.touched) return false;
+                                                                if (this.required && !this.val) return true;
+                                                                if (this.isContact && this.val && this.val.length < 11) return true;
+                                                                return false;
+                                                            }
+                                                        }"
+                                                        x-model="val"
+                                                        @blur="touched = true"
+                                                        @input="if(isContact) { touched = true; val = val.replace(/[^0-9]/g, '').slice(0, 11); }"
+                                                        :maxlength="isContact ? 11 : ''"
+                                                        :class="invalid ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/50' : 'border-gray-200 dark:border-gray-700'"
+                                                        class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-gray-900 dark:text-white placeholder-gray-400"
+                                                        placeholder="{{ strtolower($label) === 'contact number' ? '09XXXXXXXXX' : '' }}">
+                                                    <p x-show="invalid" class="text-[10px] text-red-500 mt-1 font-bold">
+                                                        <span x-text="!val && required ? 'This field is required.' : (isContact ? 'Contact number must be exactly 11 digits.' : '')"></span>
+                                                    </p>
                                                 @endif
                                             @elseif($type === 'date')
-                                                <input type="date" name="{{ $fieldName }}" {{ $isRequired ? 'required' : '' }}
-                                                    class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border {{ $hasError ? 'border-red-500 ring-2 ring-red-500/20' : 'border-gray-200 dark:border-gray-700' }} rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-gray-900 dark:text-white">
+                                                <div class="relative">
+                                                    <input type="text" name="{{ $fieldName }}" {{ $isRequired ? 'required' : '' }}
+                                                        x-init="
+                                                            const dp = initAirDatepicker($el, {
+                                                                onSelect: ({date}) => {
+                                                                    if (date) {
+                                                                        const tzOffset = date.getTimezoneOffset() * 60000;
+                                                                        $el.value = (new Date(date - tzOffset)).toISOString().slice(0, 10);
+                                                                    } else {
+                                                                        $el.value = '';
+                                                                    }
+                                                                    // Disabling default AirDatepicker input trigger since we override
+                                                                    $el.dispatchEvent(new Event('input', {bubbles: true}));
+                                                                }
+                                                            });
+                                                            setTimeout(() => {
+                                                                if ($el.value) {
+                                                                    const parts = $el.value.split('-');
+                                                                    if (parts.length === 3) {
+                                                                        dp.selectDate(new Date(parts[0], parts[1]-1, parts[2]), {silent: true});
+                                                                    }
+                                                                }
+                                                            }, 150);
+                                                        "
+                                                        placeholder="MM/DD/YYYY"
+                                                        readonly
+                                                        class="datepicker-input w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-900 border {{ $hasError ? 'border-red-500 ring-2 ring-red-500/20' : 'border-gray-200 dark:border-gray-700' }} rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white placeholder-gray-400">
+                                                    <i class="fas fa-calendar-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                                                </div>
                                             @elseif($type === 'number')
                                                 <input type="number" name="{{ $fieldName }}" {{ $isRequired ? 'required' : '' }}
                                                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border {{ $hasError ? 'border-red-500 ring-2 ring-red-500/20' : 'border-gray-200 dark:border-gray-700' }} rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-gray-900 dark:text-white"
@@ -504,17 +591,17 @@
                                  </select>
                              </div>
 
-                            <div class="relative max-w-[150px] w-full lg:w-auto">
-                                <input type="text" name="date_filter" value="{{ request('date_filter') }}"
-                                    x-init="initAirDatepicker($el)" placeholder="Filter Date" readonly
-                                    class="datepicker-input w-full lg:w-36 pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer text-gray-700 dark:text-gray-300 transition-all">
-                                <i class="fas fa-calendar absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
-                            </div>
-
                             <div class="flex items-center gap-2">
+                                <div class="relative max-w-[150px] w-full lg:w-auto">
+                                    <input type="text" name="date_filter" value="{{ request('date_filter') }}"
+                                        x-init="initAirDatepicker($el)" placeholder="Filter Date" readonly
+                                        class="datepicker-input w-full lg:w-36 pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer text-gray-700 dark:text-gray-300 transition-all">
+                                    <i class="fas fa-calendar absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                                </div>
+
                                 @if(request()->anyFilled(['status', 'date_filter']))
                                     <button type="button" @click="clearFilters()"
-                                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-bold transition-all px-2 flex items-center gap-1">
+                                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-bold transition-all px-2 flex items-center gap-1 shrink-0">
                                         <i class="fas fa-times-circle"></i>Clear
                                     </button>
                                 @endif
@@ -541,7 +628,7 @@
                                         <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors group">
                                             <td class="px-6 py-4">
                                                 <div class="font-bold text-gray-900 dark:text-white text-base">
-                                                    {{ $req->applicant_name }}
+                                                    {{ getServiceSubject($req) }}
                                                 </div>
                                                 <div class="text-xs text-gray-500 font-medium mt-0.5"><i
                                                         class="fas fa-phone mr-1 opacity-70"></i>
@@ -567,6 +654,8 @@
                                                 @php
                                                     $colors = [
                                                         'Pending' => 'bg-yellow-100 text-yellow-700 border-yellow-200',
+                                                        'For Priest Review' => 'bg-purple-100 text-purple-700 border-purple-200',
+                                                        'For Payment' => 'bg-orange-100 text-orange-700 border-orange-200',
                                                         'Approved' => 'bg-green-100 text-green-700 border-green-200',
                                                         'Completed' => 'bg-blue-100 text-blue-700 border-blue-200',
                                                         'Cancelled' => 'bg-red-100 text-red-700 border-red-200',
@@ -699,9 +788,16 @@
                             </div>
 
                             <div class="flex items-center gap-2">
-                                @if(request()->anyFilled(['status', 'type']))
+                                <div class="relative max-w-[150px] w-full lg:w-auto">
+                                    <input type="text" name="date_filter" value="{{ request('date_filter') }}"
+                                        x-init="initAirDatepicker($el)" placeholder="Filter Date" readonly
+                                        class="datepicker-input w-full lg:w-36 pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer text-gray-700 dark:text-gray-300 transition-all">
+                                    <i class="fas fa-calendar absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                                </div>
+
+                                @if(request()->anyFilled(['status', 'type', 'date_filter']))
                                     <button type="button" @click="clearFilters()"
-                                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-bold transition-all px-2 flex items-center gap-1">
+                                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-bold transition-all px-2 flex items-center gap-1 shrink-0">
                                         <i class="fas fa-times-circle"></i>Clear
                                     </button>
                                 @endif
@@ -833,7 +929,7 @@
                         <div class="flex-1 overflow-y-auto custom-scrollbar">
                             <div class="px-6 pb-0 pt-4">
                         <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                            <template x-for="(field, index) in getFields(selectedRequest.service_type)" :key="field.key">
+                            <template x-for="(field, index) in getFields(selectedRequest.service_type, selectedRequest.snapshot || selectedRequest.custom_data_parsed)" :key="field.key">
                                 <div class="col-span-12" :class="field.type === 'header' ? (index === 0 ? 'mb-2 mt-0' : 'mt-6 mb-2') : (field.type === 'textarea' ? 'md:col-span-12' : (field.label.toLowerCase().includes('suffix') ? 'md:col-span-2' : (['first name', 'given name'].some(n => field.label.toLowerCase().includes(n)) ? 'md:col-span-4 md:col-start-1' : (['middle name', 'maiden', 'last name', 'surname'].some(n => field.label.toLowerCase().includes(n)) ? 'md:col-span-3' : 'md:col-span-6'))))">
                                     <template x-if="field.type === 'header'">
                                         <div class="flex items-center gap-3">
@@ -924,6 +1020,7 @@
                         <!-- Hidden inputs for validation -->
                         <input type="hidden" name="service_type" :value="selectedRequest.service_type">
                         <input type="hidden" name="scheduled_date" :value="selectedRequest.scheduled_date">
+                        <input type="hidden" name="scheduled_time" :value="selectedRequest.scheduled_time">
                         <input type="hidden" name="first_name" :value="selectedRequest.first_name">
                         <input type="hidden" name="last_name" :value="selectedRequest.last_name">
 
@@ -1007,16 +1104,19 @@
                         <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
                             <!-- Hidden meta fields (Outside scrollable padding to avoid gaps) -->
                             <div class="hidden">
+                                <input type="hidden" name="from_edit_modal" value="1">
                                 <input type="hidden" name="status" :value="selectedRequest.status">
                                 <input type="hidden" name="payment_status" :value="selectedRequest.payment_status">
                                 <input type="hidden" name="service_type" :value="selectedRequest.service_type">
-                                <input type="hidden" name="priest_id" :value="selectedRequest.priest_id">
+                                <input type="hidden" name="priest_id" :value="editData.priest_id">
+                                <input type="hidden" name="scheduled_date" :value="editData.scheduled_date">
+                                <input type="hidden" name="scheduled_time" :value="editData.scheduled_time">
                             </div>
 
                             <div class="px-6 pb-0 pt-4">
                                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4 w-full">
                                   <!-- Dynamic Fields (Top of Edit) -->
-                                  <template x-for="(field, index) in getFields(selectedRequest.service_type)" :key="field.key">
+                                  <template x-for="(field, index) in getFields(selectedRequest.service_type, selectedRequest.custom_data_parsed)" :key="field.key">
                                       <div class="col-span-12" :class="field.type === 'header' ? (index === 0 ? 'col-span-12 mb-2 mt-0' : 'col-span-12 mt-6 mb-2') : (field.type === 'textarea' ? 'md:col-span-12' : (field.label.toLowerCase().includes('suffix') ? 'md:col-span-2' : (['first name', 'given name'].some(n => field.label.toLowerCase().includes(n)) ? 'md:col-span-4 md:col-start-1' : (['middle name', 'maiden', 'last name', 'surname'].some(n => field.label.toLowerCase().includes(n)) ? 'md:col-span-3' : 'md:col-span-6'))))">
                                           <template x-if="field.type === 'header'">
                                               <div class="flex items-center gap-3">
@@ -1034,22 +1134,84 @@
                                                       </template>
                                                   </label>
 
-                                                  <template x-if="field.type === 'text' || field.type === 'number'">
-                                                      <input :type="field.type" :name="field.mapping" 
-                                                          :value="getFieldValue(field, true)"
-                                                          :required="field.required"
-                                                          class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white placeholder-gray-400">
-                                                  </template>
+                                                   <template x-if="field.type === 'text' || field.type === 'number'">
+                                                       <div>
+                                                           <template x-if="(field.label.toLowerCase().includes('middle name') || field.label.toLowerCase().includes('middle initial')) && field.type === 'text'">
+                                                               <div x-data="{ 
+                                                                   naChecked: getRawFieldValue(field).toLowerCase() === 'n/a',
+                                                                   updateNA(checked) {
+                                                                       this.naChecked = checked;
+                                                                       const input = $el.closest('div').querySelector('input[type=\'text\']');
+                                                                       if (input) {
+                                                                           input.value = checked ? 'N/A' : '';
+                                                                           input.dispatchEvent(new Event('input', { bubbles: true }));
+                                                                       }
+                                                                   }
+                                                               }">
+                                                                   <input type="text" :name="field.mapping" 
+                                                                       :value="getRawFieldValue(field)"
+                                                                       @input="handleCustomFieldChange($event, field)"
+                                                                       :required="field.required && !naChecked"
+                                                                       :readonly="naChecked"
+                                                                       :class="naChecked ? 'opacity-60 cursor-not-allowed bg-gray-100' : ''"
+                                                                       class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white placeholder-gray-400">
+                                                                   <label class="inline-flex items-center gap-1.5 mt-2 cursor-pointer select-none">
+                                                                       <input type="checkbox" :checked="naChecked" @change="updateNA($event.target.checked)"
+                                                                           class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary">
+                                                                       <span class="text-[11px] text-gray-500 font-medium">N/A (No middle name/initial)</span>
+                                                                   </label>
+                                                               </div>
+                                                           </template>
+                                                           <template x-if="!((field.label.toLowerCase().includes('middle name') || field.label.toLowerCase().includes('middle initial')) && field.type === 'text')">
+                                                               <input :type="field.type" :name="field.mapping" 
+                                                                   :value="getRawFieldValue(field)"
+                                                                   @input="handleCustomFieldChange($event, field)"
+                                                                   :required="field.required"
+                                                                   class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white placeholder-gray-400">
+                                                           </template>
+                                                       </div>
+                                                   </template>
 
                                                   <template x-if="field.type === 'date'">
-                                                      <input type="date" :name="field.mapping" 
-                                                          :value="getFieldValue(field, true)"
-                                                          :required="field.required"
-                                                          class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white">
+                                                      <div class="relative">
+                                                          <input type="text" :name="field.mapping" 
+                                                              :value="getRawFieldValue(field)"
+                                                              @input="handleCustomFieldChange($event, field)"
+                                                              :required="field.required"
+                                                              x-init="
+                                                                  const dp = initAirDatepicker($el, {
+                                                                      onSelect: ({date}) => {
+                                                                          if (date) {
+                                                                              const tzOffset = date.getTimezoneOffset() * 60000;
+                                                                              $el.value = (new Date(date - tzOffset)).toISOString().slice(0, 10);
+                                                                          } else {
+                                                                              $el.value = '';
+                                                                          }
+                                                                      }
+                                                                  });
+                                                                  const val = getRawFieldValue(field);
+                                                                  if (val) {
+                                                                      const parts = val.split('-');
+                                                                      if (parts.length === 3) {
+                                                                          dp.selectDate(new Date(parts[0], parts[1]-1, parts[2]), {silent: true});
+                                                                      } else {
+                                                                          const dateObj = new Date(val);
+                                                                          if (!isNaN(dateObj.getTime())) {
+                                                                              dp.selectDate(dateObj, {silent: true});
+                                                                          }
+                                                                      }
+                                                                  }
+                                                              "
+                                                              placeholder="MM/DD/YYYY"
+                                                              readonly
+                                                              class="datepicker-input w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white placeholder-gray-400">
+                                                          <i class="fas fa-calendar-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                                                      </div>
                                                   </template>
 
                                                   <template x-if="field.type === 'textarea'">
-                                                      <textarea :name="field.mapping" :value="getFieldValue(field, true)"
+                                                      <textarea :name="field.mapping" :value="getRawFieldValue(field)"
+                                                          @input="handleCustomFieldChange($event, field)"
                                                           :required="field.required"
                                                           rows="3"
                                                           class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white placeholder-gray-400"></textarea>
@@ -1058,10 +1220,11 @@
                                                   <template x-if="field.type === 'select'">
                                                       <div class="relative">
                                                           <select :name="field.mapping" :required="field.required"
+                                                              @change="handleCustomFieldChange($event, field)"
                                                               class="dropdown-btn w-full">
                                                               <option value="">Select Option</option>
                                                               <template x-for="opt in field.options" :key="opt">
-                                                                  <option :value="opt" :selected="opt === getFieldValue(field, true)" x-text="opt"></option>
+                                                                  <option :value="opt" :selected="opt === getRawFieldValue(field)" x-text="opt"></option>
                                                               </template>
                                                           </select>
                                                       </div>
@@ -1079,17 +1242,12 @@
                                      </div>
                                      
                                      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                         <template x-for="req in getRequirements(selectedRequest.service_type)" :key="req">
-                                             <label class="flex items-center gap-3 p-3.5 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 cursor-pointer transition-all hover:bg-gray-100 dark:hover:bg-gray-800"
-                                                 :class="{ 'opacity-60 cursor-not-allowed': selectedRequest.requirements && selectedRequest.requirements.includes(req) }">
+                                         <template x-for="req in getRequirements(selectedRequest)" :key="req">
+                                             <label class="flex items-center gap-3 p-3.5 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 cursor-pointer transition-all hover:bg-gray-100 dark:hover:bg-gray-800">
                                                  <div class="relative flex items-center">
                                                      <input type="checkbox" name="requirements[]" :value="req"
                                                          :checked="selectedRequest.requirements && selectedRequest.requirements.includes(req)"
-                                                         :disabled="selectedRequest.requirements && selectedRequest.requirements.includes(req)"
-                                                         class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-70">
-                                                     <template x-if="selectedRequest.requirements && selectedRequest.requirements.includes(req)">
-                                                         <input type="hidden" name="requirements[]" :value="req">
-                                                     </template>
+                                                         class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary">
                                                  </div>
                                                  <span class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="req"></span>
                                              </label>
@@ -1097,44 +1255,7 @@
                                      </div>
                                  </div>
 
-                                 <div class="col-span-12 mt-8 mb-4">
-                                     <div class="flex items-center gap-3">
-                                         <h3 class="text-[11px] font-extrabold text-gray-600 uppercase tracking-[0.15em] whitespace-nowrap">Applicant / Contact Person Details</h3>
-                                         <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-                                     </div>
-                                 </div>
 
-                                 <div class="col-span-12 md:col-span-4">
-                                     <label class="block text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">First Name</label>
-                                     <input type="text" name="first_name" x-model="editData.first_name"
-                                         class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white">
-                                 </div>
-                                 <div class="col-span-12 md:col-span-3">
-                                     <label class="block text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Middle Name</label>
-                                     <input type="text" name="middle_name" x-model="editData.middle_name"
-                                         class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white">
-                                 </div>
-                                 <div class="col-span-12 md:col-span-3">
-                                     <label class="block text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Last Name</label>
-                                     <input type="text" name="last_name" x-model="editData.last_name"
-                                         class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white">
-                                 </div>
-                                 <div class="col-span-12 md:col-span-2">
-                                     <label class="block text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Suffix</label>
-                                     <input type="text" name="suffix" x-model="editData.suffix"
-                                         class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white">
-                                 </div>
-
-                                 <div class="col-span-12 md:col-span-6">
-                                     <label class="block text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Contact Number</label>
-                                     <input type="text" name="contact_number" x-model="editData.contact_number"
-                                         class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white">
-                                 </div>
-                                 <div class="col-span-12 md:col-span-6">
-                                     <label class="block text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Email Address</label>
-                                     <input type="email" name="email" x-model="editData.email"
-                                         class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white">
-                                 </div>
 
                                  <div class="col-span-12 mt-8 mb-4">
                                      <div class="flex items-center gap-3">
@@ -1147,7 +1268,9 @@
                                  <div class="col-span-12 md:col-span-12">
                                      <label class="block text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Officiating Priest</label>
                                      <div class="space-y-3">
-                                         <select name="priest_id" x-model="editData.priest_id" 
+                                         <select x-model="editData.priest_id" 
+                                             :disabled="['For Payment', 'Approved', 'Completed'].includes(selectedRequest.status)"
+                                             :class="['For Payment', 'Approved', 'Completed'].includes(selectedRequest.status) ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''"
                                              @change="
                                                 editData.scheduled_date = '';
                                                 editData.scheduled_time = '';
@@ -1181,48 +1304,98 @@
                                              </template>
                                              <span x-text="availability.loading ? 'Checking priest availability...' : availability.message"></span>
                                          </div>
+                                         <div x-show="['For Payment', 'Approved', 'Completed'].includes(selectedRequest.status)" class="flex items-center gap-2 text-[10px] text-amber-600 font-bold bg-amber-50 p-2 rounded-lg border border-amber-100 mt-2">
+                                             <i class="fas fa-lock"></i>
+                                             <span>Schedule is locked after confirmation.</span>
+                                         </div>
                                      </div>
                                  </div>
 
                                  <div class="col-span-12 md:col-span-6">
                                      <label class="block text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Scheduled Date</label>
                                      <div class="relative">
-                                         <input type="text" name="scheduled_date" x-model="editData.scheduled_date"
-                                             x-init="initAirDatepicker($el, { onSelect: ({date}) => { editData.scheduled_date = date ? date.toISOString().split('T')[0] : ''; checkAvailability(true); } })"
-                                             placeholder="YYYY-MM-DD" readonly
-                                             class="datepicker-input w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border {{ $errors->has('scheduled_date') ? 'border-red-500 ring-2 ring-red-500/20' : 'border-gray-200 dark:border-gray-700' }} rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white">
-                                         @error('scheduled_date') <p class="text-[10px] text-red-500 mt-1 font-medium">{{ $message }}</p> @enderror
+                                         <input type="text" x-model="editData.scheduled_date"
+                                             :disabled="['For Payment', 'Approved', 'Completed'].includes(selectedRequest.status)"
+                                             x-init="
+                                                 const dp = initAirDatepicker($el, { 
+                                                     onSelect: ({date, formattedDate}) => { 
+                                                         editData.scheduled_date = formattedDate || '';
+                                                         checkAvailability(true); 
+                                                     },
+                                                     onRenderCell: ({date, cellType}) => {
+                                                         const priest = priests.find(p => p.id == editData.priest_id);
+                                                         if (cellType === 'day' && priest && priest.working_days && priest.working_days.length > 0) {
+                                                             const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                                                             if (!priest.working_days.includes(dayNames[date.getDay()])) {
+                                                                 return { disabled: true, classes: 'bg-gray-100 text-gray-400 opacity-50 cursor-not-allowed' };
+                                                             }
+                                                         }
+                                                     }
+                                                 });
+                                                 $watch('editData.priest_id', () => dp.update());
+
+                                                 $watch('editData.scheduled_date', val => {
+                                                     if (!val) { dp.clear(); }
+                                                     else {
+                                                         const parts = val.split('-');
+                                                         if (parts.length === 3) {
+                                                             const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+                                                             if (!dp.selectedDates.length || dp.selectedDates[0].getTime() !== dateObj.getTime()) {
+                                                                 dp.selectDate(dateObj, {silent: true});
+                                                             }
+                                                         } else {
+                                                             const dateObj = new Date(val);
+                                                             if (!isNaN(dateObj.getTime()) && (!dp.selectedDates.length || dp.selectedDates[0].getTime() !== dateObj.getTime())) {
+                                                                 dp.selectDate(dateObj, {silent: true});
+                                                             }
+                                                         }
+                                                     }
+                                                 });
+                                             "
+                                             placeholder="MM/DD/YYYY" readonly
+                                             :class="['For Payment', 'Approved', 'Completed'].includes(selectedRequest.status) ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''"
+                                             class="datepicker-input w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-900 border {{ $errors->has('scheduled_date') ? 'border-red-500 ring-2 ring-red-500/20' : 'border-gray-200 dark:border-gray-700' }} rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white">
+                                         <i class="fas fa-calendar-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
                                      </div>
+                                     @error('scheduled_date') <p class="text-[10px] text-red-500 mt-1 font-medium">{{ $message }}</p> @enderror
                                  </div>
                                  <div class="col-span-12 md:col-span-6">
                                      <label class="block text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Scheduled Time</label>
                                      <div class="relative">
-                                         <input type="text" name="scheduled_time" x-model="editData.scheduled_time"
+                                         <input type="text" x-model="editData.scheduled_time"
+                                             :disabled="['For Payment', 'Approved', 'Completed'].includes(selectedRequest.status)"
                                              x-init="
-                                                $watch('editData.priest_id', value => {
-                                                    const priest = priests.find(p => p.id == value);
-                                                    const extra = {};
-                                                    if (priest && priest.working_hours) {
-                                                        extra.minTime = priest.working_hours.start;
-                                                        extra.maxTime = priest.working_hours.end;
-                                                    }
-                                                    initFlatpickr($el, { ...extra, onChange: (dates, str) => { editData.scheduled_time = str; checkAvailability(true); } });
-                                                });
-                                                // Initial init
-                                                (() => {
+                                                let fp = null;
+                                                const setupFp = () => {
                                                     const priest = priests.find(p => p.id == editData.priest_id);
                                                     const extra = {};
                                                     if (priest && priest.working_hours) {
                                                         extra.minTime = priest.working_hours.start;
                                                         extra.maxTime = priest.working_hours.end;
                                                     }
-                                                    initFlatpickr($el, { ...extra, onChange: (dates, str) => { editData.scheduled_time = str; checkAvailability(true); } });
-                                                })();
+                                                    if (fp) fp.destroy();
+                                                    fp = initFlatpickr($el, { ...extra, onChange: (dates, str) => { editData.scheduled_time = str; checkAvailability(true); } });
+                                                    if (editData.scheduled_time) fp.setDate(editData.scheduled_time, false);
+                                                };
+                                                
+                                                $watch('editData.priest_id', setupFp);
+                                                
+                                                $watch('editData.scheduled_time', val => {
+                                                    if (!val && fp) fp.clear();
+                                                    else if (val && fp) {
+                                                         fp.setDate(val, false);
+                                                    }
+                                                });
+                                                
+                                                // Initial init
+                                                setupFp();
                                              "
                                              placeholder="Select Time" readonly
-                                             class="timepicker-input w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border {{ $errors->has('scheduled_time') ? 'border-red-500 ring-2 ring-red-500/20' : 'border-gray-200 dark:border-gray-700' }} rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white">
-                                         @error('scheduled_time') <p class="text-[10px] text-red-500 mt-1 font-medium">{{ $message }}</p> @enderror
+                                             :class="['For Payment', 'Approved', 'Completed'].includes(selectedRequest.status) ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''"
+                                             class="timepicker-input w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-900 border {{ $errors->has('scheduled_time') ? 'border-red-500 ring-2 ring-red-500/20' : 'border-gray-200 dark:border-gray-700' }} rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white">
+                                         <i class="fas fa-clock absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
                                      </div>
+                                     @error('scheduled_time') <p class="text-[10px] text-red-500 mt-1 font-medium">{{ $message }}</p> @enderror
                                  </div>
 
                                  <!-- Notes/Details -->
@@ -1271,7 +1444,6 @@
         <!-- Global     Datepicker Initializer -->
         function initAirDatepicker(el, extraOptions = {}) {
             const defaultOnSelect = ({ date, formattedDate, datepicker }) => {
-                // Find the nearest tableSearch Alpine component and call submitSearch
                 const container = el.closest('[x-data]');
                 if (container && container._x_dataStack) {
                     const component = container._x_dataStack[0];
@@ -1280,7 +1452,6 @@
                         return;
                     }
                 }
-                // Fallback: submit the nearest form normally
                 const form = el.closest('form');
                 if (form) form.submit();
             };
@@ -1294,22 +1465,36 @@
                     monthsShort: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
                     today: 'Today',
                     clear: 'Clear',
-                    dateFormat: 'yyyy-MM-dd',
+                    dateFormat: 'MM/dd/yyyy',
                     timeFormat: 'hh:ii aa',
                     firstDay: 0
                 },
-                dateFormat: 'yyyy-MM-dd',
+                dateFormat: 'MM/dd/yyyy',
                 autoClose: true,
                 isMobile: false,
-                buttons: ['today', 'clear'],
-                container: 'body',
-                // Use caller-supplied onSelect if provided (edit modals), else use filter auto-submit
-                onSelect: extraOptions.onSelect || defaultOnSelect,
+                buttons: ['today'],
+                position: 'bottom left',
+                onSelect: (args) => {
+                    if (extraOptions.onSelect) {
+                        extraOptions.onSelect(args);
+                    } else {
+                        defaultOnSelect(args);
+                    }
+                    // Trigger input event for persistence
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                }
             };
 
-            // Merge remaining extraOptions (excluding onSelect which we already handled)
             const { onSelect: _, ...rest } = extraOptions;
-            new AirDatepicker(el, { ...options, ...rest });
+            const dp = new AirDatepicker(el, { ...options, ...rest });
+
+            // Reposition on scroll for any scrollable ancestor
+            const scrollParent = el.closest('.overflow-y-auto, .overflow-auto, [style*="overflow"]') || document.querySelector('main') || window;
+            scrollParent.addEventListener('scroll', () => {
+                if (dp.visible) dp.show();
+            }, { passive: true });
+
+            return dp;
         }
 
         function initFlatpickr(el, extraOptions = {}) {
@@ -1319,10 +1504,23 @@
                 dateFormat: "h:i K",
                 time_24hr: false,
                 disableMobile: true,
-                static: false,
-                appendTo: document.body
+                onChange: (selectedDates, dateStr, instance) => {
+                    if (extraOptions.onChange) {
+                        extraOptions.onChange(selectedDates, dateStr, instance);
+                    }
+                    // Trigger input event for persistence
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                }
             };
-            flatpickr(el, { ...defaultOptions, ...extraOptions });
+            const fp = flatpickr(el, { ...defaultOptions, ...extraOptions });
+
+            // Reposition on scroll for any scrollable ancestor
+            const scrollParent = el.closest('.overflow-y-auto, .overflow-auto, [style*="overflow"]') || document.querySelector('main') || window;
+            scrollParent.addEventListener('scroll', () => {
+                if (fp.isOpen) { fp.close(); fp.open(); }
+            }, { passive: true });
+
+            return fp;
         }
     </script>
     <style>
@@ -1342,17 +1540,48 @@
         }
         .flatpickr-calendar {
             z-index: 9999 !important;
-            position: fixed !important;
+        }
+        .flatpickr-wrapper {
+            display: block;
+            width: 100%;
         }
     </style>
     @push('scripts')
-        <script>
-            document.addEventListener('alpine:init', () => {
+    <script>
+        // Global Age Calculator
+        window.calculateAge = function(birthDate) {
+            if (!birthDate) return '';
+            const today = new Date();
+            const birth = new Date(birthDate);
+            if (isNaN(birth.getTime())) return '';
+            
+            let years = today.getFullYear() - birth.getFullYear();
+            let months = today.getMonth() - birth.getMonth();
+            
+            if (months < 0 || (months === 0 && today.getDate() < birth.getDate())) {
+                years--;
+            }
+            
+            if (years >= 0) {
+                if (years >= 1) return years;
+                
+                // Calculate total months for babies under 1 year
+                let totalMonths = (today.getFullYear() - birth.getFullYear()) * 12 + (today.getMonth() - birth.getMonth());
+                if (today.getDate() < birth.getDate()) {
+                    totalMonths--;
+                }
+                return (totalMonths > 0 ? totalMonths : 0) + " mos";
+            }
+            
+            return ""; // Future dates return empty
+        };
+
+        document.addEventListener('alpine:init', () => {
                 Alpine.data('formPersistence', (serviceName, hasSuccess) => ({
                     storageKey: `service_request_${serviceName}`,
                     formData: {},
-                    applicantRole: 'Other',
-                    sameAsAbove: false,
+
+                    isRestoring: false, // Guard flag for recursion
                     
                     init() {
                         if (hasSuccess) {
@@ -1360,17 +1589,21 @@
                             return;
                         }
 
+                        // Listen for global clear event (e.g. from logout)
+                        window.addEventListener('clear-service-forms', () => this.clear());
+
                         const savedData = localStorage.getItem(this.storageKey);
                         if (savedData) {
                             this.formData = JSON.parse(savedData);
-                            this.restoreFormData();
-                            
-                            if (this.formData['_applicantRole']) this.applicantRole = this.formData['_applicantRole'];
-                            if (this.formData['_sameAsAbove']) this.sameAsAbove = this.formData['_sameAsAbove'];
+                            // Give Alpine components in the form a moment to initialize before restoring
+                            this.$nextTick(() => {
+                                this.restoreFormData();
+                            });
                         }
                     },
 
                     persist(el) {
+                        if (this.isRestoring) return; // Block automated events
                         if (!el.name && !el.dataset.persistName) return;
                         const name = el.name || el.dataset.persistName;
 
@@ -1381,71 +1614,104 @@
                             } else {
                                 this.formData[name] = el.checked;
                             }
+                        } else if (el.type === 'radio') {
+                            if (el.checked) {
+                                this.formData[name] = el.value;
+                            }
                         } else {
                             this.formData[name] = el.value;
                         }
 
-                        // Save internal states
-                        this.formData['_applicantRole'] = this.applicantRole;
-                        this.formData['_sameAsAbove'] = this.sameAsAbove;
-
                         localStorage.setItem(this.storageKey, JSON.stringify(this.formData));
                         
-                        if (this.sameAsAbove && (name.includes('groom') || name.includes('bride'))) {
-                            this.syncApplicant();
+                        // Handle Age calculation if this is a birthdate field
+                        this.updateAge(el);
+                    },
+
+                    updateAge(el) {
+                        const name = el.name || el.dataset.persistName;
+                        if (!name) return;
+
+                        const lowerName = name.toLowerCase();
+                        if (lowerName.includes('birth') || lowerName.includes('dob')) {
+                            const age = window.calculateAge(el.value);
+                            if (age !== '') {
+                                let ageFieldName = '';
+                                const bracketMatch = name.match(/\[(.*?)\]/);
+                                if (bracketMatch) {
+                                    const inner = bracketMatch[1];
+                                    const ageInner = inner.replace(/date_of_birth|birthdate|dob/gi, 'age');
+                                    if (ageInner.toLowerCase() !== inner.toLowerCase()) {
+                                        ageFieldName = name.replace(inner, ageInner);
+                                    }
+                                } else {
+                                    ageFieldName = name.replace(/date_of_birth|birthdate|dob/gi, 'age');
+                                }
+
+                                if (ageFieldName && ageFieldName !== name) {
+                                    let ageInput = document.querySelector(`[name="${ageFieldName}"]`);
+                                    if (ageInput) {
+                                        // Update input value
+                                        if (ageInput.type === 'number' && typeof age === 'string' && age.includes(' ')) {
+                                            ageInput.type = 'text';
+                                        }
+                                        ageInput.value = age;
+                                        
+                                        // Save to formData too
+                                        this.formData[ageInput.name] = age;
+                                        localStorage.setItem(this.storageKey, JSON.stringify(this.formData));
+                                        
+                                        // Trigger input event for potential other listeners (like validations)
+                                        // We temporarily set isRestoring to prevent recursive persist calls
+                                        const originalRestoring = this.isRestoring;
+                                        this.isRestoring = true;
+                                        ageInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                        this.isRestoring = originalRestoring;
+                                    }
+                                }
+                            }
                         }
                     },
 
-                    syncApplicant() {
-                        if (!this.sameAsAbove) return;
-                        
-                        const prefix = this.applicantRole.toLowerCase(); // 'groom' or 'bride'
-                        if (prefix !== 'groom' && prefix !== 'bride') return;
-
-                        // Names are stored in custom_data[groom_first_name] etc.
-                        const firstName = this.formData[`custom_data[${prefix}_first_name]`] || '';
-                        const middleName = this.formData[`custom_data[${prefix}_middle_name]`] || '';
-                        const lastName = this.formData[`custom_data[${prefix}_last_name]`] || '';
-                        const suffix = this.formData[`custom_data[${prefix}_suffix]`] || '';
-
-                        // Update primary applicant columns
-                        this.formData['first_name'] = firstName;
-                        this.formData['middle_name'] = middleName;
-                        this.formData['last_name'] = lastName;
-                        this.formData['suffix'] = suffix;
-
-                        // Update the DOM
-                        this.restoreFormData();
-                        
-                        // Explicitly trigger persistence for the newly filled fields
-                        localStorage.setItem(this.storageKey, JSON.stringify(this.formData));
-                    },
-
                     restoreFormData() {
-                        Object.keys(this.formData).forEach(name => {
-                            if (name.startsWith('_')) return; // Skip internal states
-                            const value = this.formData[name];
-                            const inputs = document.querySelectorAll(`[name="${name}"]`);
+                        this.isRestoring = true;
+                        try {
+                            Object.keys(this.formData).forEach(name => {
+                                if (name.startsWith('_')) return;
+                                const value = this.formData[name];
+                                const inputs = document.querySelectorAll(`[name="${name}"]`);
 
-                            inputs.forEach(el => {
-                                if (el.type === 'checkbox' || el.type === 'radio') {
-                                    if (Array.isArray(value)) {
-                                        el.checked = value.includes(el.value);
+                                inputs.forEach(el => {
+                                    if (el.type === 'checkbox') {
+                                        if (Array.isArray(value)) {
+                                            el.checked = value.includes(el.value);
+                                        } else {
+                                            el.checked = !!value;
+                                        }
+                                    } else if (el.type === 'radio') {
+                                        el.checked = (String(el.value) === String(value));
                                     } else {
-                                        el.checked = (value === true || el.value === String(value));
+                                        el.value = value;
                                     }
-                                    el.dispatchEvent(new Event('change', { bubbles: true }));
-                                } else {
-                                    el.value = value;
+                                    
+                                    // Dispatch both events to catch both standard and x-model listeners
                                     el.dispatchEvent(new Event('input', { bubbles: true }));
                                     el.dispatchEvent(new Event('change', { bubbles: true }));
-                                }
+
+                                    // Special: If this is a birthdate, update age immediately during restoration
+                                    this.updateAge(el);
+                                });
                             });
-                        });
+                        } catch (e) {
+                            console.error('Error restoring form data', e);
+                        } finally {
+                            this.isRestoring = false;
+                        }
                     },
 
                     clear() {
                         localStorage.removeItem(this.storageKey);
+                        this.formData = {};
                     }
                 }));
 
@@ -1456,18 +1722,7 @@
                     editData: {},
                     updateUrl: '',
                     priests: @json($active_priests),
-                    serviceDefinitions: @json($service_types->map(function($s) {
-                        $fields = is_string($s->custom_fields) ? json_decode($s->custom_fields, true) : ($s->custom_fields ?? []);
-                        if (is_array($fields)) {
-                            foreach($fields as &$f) {
-                                if (isset($f['label'])) {
-                                    $f['computed_key'] = \Illuminate\Support\Str::slug($f['label'], '_');
-                                }
-                            }
-                        }
-                        $s->custom_fields = $fields;
-                        return $s;
-                    })),
+                    serviceDefinitions: @json($serviceDefinitions),
                     selectedService: '{{ request('type') }}',
                     availability: {
                         loading: false,
@@ -1490,6 +1745,50 @@
                         @if(isset($autoOpenRequest) && $autoOpenRequest)
                             this.openEditModal(@json($autoOpenRequest));
                         @endif
+                    },
+
+                    handleCustomFieldChange(e, field) {
+                        const val = e.target.value;
+                        const name = field.mapping;
+                        const lowerName = name.toLowerCase();
+
+                        // Update editData.custom_data so it stays in sync
+                        if (name.includes('custom_data[')) {
+                            this.editData.custom_data[field.computed_key] = val;
+                        }
+
+                        // Auto-age calculation
+                        if (lowerName.includes('birth') || lowerName.includes('dob')) {
+                            const age = window.calculateAge(val);
+                            if (age !== '') {
+                                let ageMapping = '';
+                                let ageKey = '';
+
+                                if (name.includes('[') && name.endsWith(']')) {
+                                    const inner = name.match(/\[(.*?)\]/)[1];
+                                    const ageInner = inner.replace(/date_of_birth|birthdate|dob/g, 'age');
+                                    if (ageInner !== inner) {
+                                        ageMapping = name.replace(inner, ageInner);
+                                        ageKey = field.computed_key.replace(/date_of_birth|birthdate|dob/g, 'age');
+                                    }
+                                } else {
+                                    ageMapping = name.replace(/date_of_birth|birthdate|dob/ig, 'age');
+                                }
+
+                                if (ageMapping && ageMapping !== name) {
+                                    // Update editData.custom_data
+                                    if (ageKey) this.editData.custom_data[ageKey] = age;
+
+                                    // Update the DOM element directly for immediate feedback
+                                    const ageInput = document.querySelector(`.edit-modal-form [name="${ageMapping}"]`);
+                                    if (ageInput) {
+                                        ageInput.value = age;
+                                        // Also manually update the input if it's not x-modeled
+                                        ageInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                    }
+                                }
+                            }
+                        }
                     },
 
                     checkAvailability(isEdit = false) {
@@ -1546,7 +1845,11 @@
                             });
                     },
 
-                    getRequirements(serviceType) {
+                    getRequirements(req) {
+                        if (req.custom_data && req.custom_data._snapshot_requirements) {
+                            return req.custom_data._snapshot_requirements;
+                        }
+                        const serviceType = req.service_type;
                         const def = this.serviceDefinitions.find(d => d.name === serviceType);
                         return def ? (def.requirements || []) : [];
                     },
@@ -1560,12 +1863,6 @@
                             this.editData.scheduled_date = this.editData.scheduled_date.slice(0, 10);
                         }
 
-                        // Clear schedule for Declined requests to allow fresh resubmission
-                        if (req.status === 'Declined') {
-                            this.editData.scheduled_date = '';
-                            this.editData.scheduled_time = '';
-                        }
-
                         // Parse custom_data safely for both editData and selectedRequest
                         let parsed = {};
                         if (typeof req.custom_data === 'string') {
@@ -1577,8 +1874,42 @@
                         }
                         this.editData.custom_data = parsed;
                         this.selectedRequest.custom_data_parsed = parsed;
+
+                        // Robustly populate root fields if they are empty
+                        const rootFields = ['first_name', 'middle_name', 'last_name', 'suffix', 'contact_number', 'email'];
+                        rootFields.forEach(field => {
+                            if (!this.editData[field] || String(this.editData[field]).trim() === '') {
+                                // Search in parsed custom_data for any key that ends with the field name
+                                // e.g. applicant_s_details_first_name or contact_person_first_name
+                                const matchKey = Object.keys(parsed).find(k => k === field || k.endsWith('_' + field));
+                                if (matchKey) {
+                                    this.editData[field] = parsed[matchKey];
+                                }
+                            }
+                        });
                         
                         this.updateUrl = `{{ route('service-requests.update', 'ID') }}`.replace('ID', req.id);
+                        
+                        // Auto-calculate ages for birthdate fields once modal data is ready
+                        this.$nextTick(() => {
+                            const fields = this.getFields(req.service_type, this.editData.custom_data);
+                            fields.forEach(f => {
+                                const lowLabel = (f.label || '').toLowerCase();
+                                if (lowLabel.includes('birth') || lowLabel.includes('dob')) {
+                                    const val = this.editData.custom_data[f.key] || this.editData[f.column] || '';
+                                    if (val) {
+                                        const age = window.calculateAge(val);
+                                        if (age !== '') {
+                                            const ageKey = f.key.replace(/date_of_birth|birthdate|dob/g, 'age');
+                                            if (ageKey !== f.key && !this.editData.custom_data[ageKey]) {
+                                                this.editData.custom_data[ageKey] = age;
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        });
+
                         this.editModalOpen = true;
                     },
 
@@ -1586,12 +1917,6 @@
                         this.selectedRequest = req;
                         this.updateUrl = `{{ route('service-requests.update', 'ID') }}`.replace('ID', req.id);
                         this.submitStatus = (req.status === 'Declined') ? 'For Priest Review' : 'For Payment';
-
-                        // Clear schedule for Declined requests to allow fresh resubmission
-                        if (req.status === 'Declined') {
-                            this.selectedRequest.scheduled_date = null;
-                            this.selectedRequest.scheduled_time = null;
-                        }
 
                         // Parse custom_data safely for the view modal
                         if (typeof this.selectedRequest.custom_data === 'string') {
@@ -1608,58 +1933,61 @@
                         this.modalOpen = true;
                     },
 
-                    getFields(serviceTypeName) {
-                        const serviceDef = this.serviceDefinitions.find(s => s.name === serviceTypeName);
+                    getFields(serviceTypeName, requestData = null) {
                         let customFields = [];
-                        if (serviceDef && serviceDef.custom_fields) {
-                            try {
-                                customFields = typeof serviceDef.custom_fields === 'string' 
-                                    ? JSON.parse(serviceDef.custom_fields) 
-                                    : serviceDef.custom_fields;
-                            } catch (e) {
-                                console.error('Error parsing custom fields', e);
+                        
+                        // Priority 1: Use snapshot if available in the specific request
+                        if (requestData && requestData._snapshot_fields) {
+                            customFields = typeof requestData._snapshot_fields === 'string'
+                                ? JSON.parse(requestData._snapshot_fields)
+                                : requestData._snapshot_fields;
+                        } else {
+                            // Priority 2: Use current definition from settings
+                            const serviceDef = this.serviceDefinitions.find(s => s.name === serviceTypeName);
+                            if (serviceDef && serviceDef.custom_fields) {
+                                try {
+                                    customFields = typeof serviceDef.custom_fields === 'string' 
+                                        ? JSON.parse(serviceDef.custom_fields) 
+                                        : serviceDef.custom_fields;
+                                } catch (e) {
+                                    console.error('Error parsing custom fields', e);
+                                }
                             }
                         }
 
                         if (!Array.isArray(customFields)) customFields = [];
 
-                        // Always include standard fields that are NOT part of customized fields if they are missing
-                        // but actually the user wants THE ORDER of the custom_fields.
-                        // So we just map the custom_fields.
-
+                        let currentHeaderSlug = '';
                         return customFields.map(cf => {
-                            let label = cf.label || 'Untitled';
-                            let key = cf.computed_key || label.toLowerCase()
-                                            .replace(/'/g, '')
-                                            .replace(/[^a-z0-9]+/g, '_')
-                                            .replace(/(^_|_$)/g, '');
+                            const label = cf.label || 'Untitled';
+                            const type = cf.type || 'text';
                             
-                            // Mapping logic corresponding to the PHP side
-                            let mapping = 'custom_data[' + key + ']';
-                            let column = null;
-                            
-                            const standardLabels = [
-                                'first name', 'given name', 'middle name', 'middle initial', 'last name', 'surname', 'suffix', 
-                                'contact number', 'contact no.', 'email', 'email address',
-                                'fathers name', 'father\'s name', 'father\'s full name', 'mothers name', 'mother\'s name', 'mother\'s full name'
-                            ];
-                            const lowerLabel = label.toLowerCase();
-                            if (standardLabels.includes(lowerLabel)) {
-                                if (lowerLabel.includes('first') || lowerLabel.includes('given')) column = 'first_name';
-                                else if (lowerLabel.includes('middle')) column = 'middle_name';
-                                else if (lowerLabel.includes('last') || lowerLabel.includes('surname')) column = 'last_name';
-                                else if (lowerLabel.includes('suffix')) column = 'suffix';
-                                else if (lowerLabel.includes('contact')) column = 'contact_number';
-                                else if (lowerLabel.includes('email')) column = 'email';
-                                else if (lowerLabel.includes('father')) column = 'fathers_name';
-                                else if (lowerLabel.includes('mother')) column = 'mothers_name';
-                                mapping = column;
+                            // Slugify logic matching PHP \Illuminate\Support\Str::slug($label, '_')
+                            // Slugify logic matching PHP \Illuminate\Support\Str::slug($label, '_')
+                            const slugify = (str) => {
+                                if (!str) return '';
+                                return str.toLowerCase()
+                                    .replace(/[^a-z0-9]+/g, '_') // replaces everything non-alphanumeric with _
+                                    .replace(/(^_|_$)/g, '');    // trims leading/trailing _
+                            };
+
+                            if (type === 'header') {
+                                currentHeaderSlug = slugify(label);
                             }
+
+                            const labelSlug = slugify(label);
+                            const computedKey = currentHeaderSlug ? `${currentHeaderSlug}_${labelSlug}` : labelSlug;
+                            
+                            // For mapping, we use custom_data[computedKey] to avoid overriding root columns
+                            // The root mapping logic is handled separately for specific applicant fields.
+                            let mapping = 'custom_data[' + computedKey + ']';
+                            let column = null;
 
                             return {
                                 label: label,
-                                key: key,
-                                type: cf.type || 'text',
+                                key: computedKey,
+                                computed_key: computedKey,
+                                type: (type === 'number' && label.toLowerCase().includes('age')) ? 'text' : type,
                                 options: cf.options || [],
                                 required: !!cf.required,
                                 column: column,
@@ -1668,39 +1996,52 @@
                         });
                     },
 
-                    getFieldValue(field, isEdit = false) {
-                        const fallback = 'N/A';
-                        if (!this.selectedRequest) return fallback;
-                        
-                        // If it's a root column
+                    getRawFieldValue(field) {
+                        if (!this.selectedRequest) return '';
                         let val = '';
-                        if (field.column && this.selectedRequest[field.column] !== undefined && this.selectedRequest[field.column] !== null) {
-                            val = String(this.selectedRequest[field.column]).trim();
+                        const isEdit = this.editModalOpen;
+                        
+                        if (field.column && (isEdit ? this.editData : this.selectedRequest)[field.column] !== undefined && (isEdit ? this.editData : this.selectedRequest)[field.column] !== null) {
+                            val = String((isEdit ? this.editData : this.selectedRequest)[field.column]).trim();
                         } else {
-                            // If it's in custom_data
-                            const customData = this.selectedRequest.custom_data_parsed || {};
-                            
-                            // Try multiple key variations for robustness
+                            const customData = isEdit ? (this.editData.custom_data || {}) : (this.selectedRequest.custom_data_parsed || {});
                             const keyVariations = [
                                 field.key,
+                                field.key.replace(/_s_/g, 's_').replace(/_s$/, 's'),
                                 field.label.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
-                                field.label.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                                field.label.toLowerCase().replace(/[^a-z0-9]+/g, ''),
                                 field.label
                             ];
-
+                            
+                            let found = false;
                             for (const k of keyVariations) {
                                 if (customData[k] !== undefined && customData[k] !== null) {
                                     val = String(customData[k]).trim();
+                                    found = true;
                                     break;
                                 }
                             }
+                            
+                            // Fuzzy fallback for Laravel Str::slug mismatches
+                            if (!found) {
+                                const targetFuzzy = field.key.replace(/_/g, '');
+                                for (const [k, v] of Object.entries(customData)) {
+                                    if (k.replace(/_/g, '') === targetFuzzy) {
+                                        if (v !== undefined && v !== null) {
+                                            val = String(v).trim();
+                                            found = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        
-                        // Skip "N/A" for date/select/number if they are empty
-                        if (isEdit && (field.type === 'date' || field.type === 'select' || field.type === 'number') && (val === '' || val === 'N/A')) {
-                            return '';
-                        }
-                        
+                        return val;
+                    },
+
+                    getFieldValue(field) {
+                        const fallback = 'N/A';
+                        const val = this.getRawFieldValue(field);
                         return (val === '' || val === null || val.toLowerCase() === 'n/a') ? fallback : val;
                     },
 
@@ -1817,7 +2158,7 @@
                             minDate: new Date(),
                             autoClose: true,
                             isMobile: false,
-                            container: 'body',
+                            position: 'bottom left',
                             onSelect: ({date}) => {
                                 if (!date) {
                                     if (minTime && maxTime) {
@@ -1825,6 +2166,9 @@
                                     }
                                     return;
                                 }
+                                
+                                // Explicitly trigger input for persistence
+                                this.$refs.dateInput.dispatchEvent(new Event('input', { bubbles: true }));
 
                                 const dateStr = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
                                 
@@ -1865,7 +2209,7 @@
                                     
                                     // Disable un-working days
                                     if (workingDays.length > 0 && !workingDays.includes(dayName)) {
-                                        return { disabled: true, classes: 'bg-gray-100 opacity-50 cursor-not-allowed' };
+                                        return { disabled: true, classes: 'bg-gray-100 text-gray-400 opacity-50 cursor-not-allowed' };
                                     }
                                     
                                     // Disable fully booked dates

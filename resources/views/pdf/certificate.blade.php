@@ -21,10 +21,22 @@
     elseif($isWedding) $title = 'Marriage Certificate';
     elseif($isBurial) $title = 'Christian Burial Certificate';
 
-    $fullName = strtoupper($service->applicant_name);
-    
+    // For Baptism: always read child's name directly from custom_data to avoid
+    // applicant name contamination in the root first_name/last_name columns.
+    $customData = is_array($service->custom_data) ? $service->custom_data : (json_decode($service->getRawOriginal('custom_data'), true) ?? []);
+
+    if ($isBaptism) {
+        $cfn = $customData['child_s_details_first_name'] ?? $customData['child_details_first_name'] ?? $customData['first_name'] ?? '';
+        $cmn = $customData['child_s_details_middle_name'] ?? $customData['child_details_middle_name'] ?? $customData['middle_name'] ?? '';
+        $cln = $customData['child_s_details_last_name'] ?? $customData['child_details_last_name'] ?? $customData['last_name'] ?? '';
+        $csfx = $customData['child_s_details_suffix'] ?? $customData['child_details_suffix'] ?? $customData['suffix'] ?? '';
+        $nameParts = array_filter([$cfn, ($cmn && strtoupper($cmn) !== 'N/A') ? $cmn : null, $cln, ($csfx && strtoupper($csfx) !== 'N/A') ? $csfx : null]);
+        $fullName = strtoupper(trim(implode(' ', $nameParts))) ?: strtoupper($service->subject_name);
+    } else {
+        $fullName = strtoupper($service->subject_name);
+    }
+
     if($isWedding) {
-        $customData = $service->filtered_custom_data;
         $groomName = $fullName;
         $brideName = strtoupper(trim(
             ($customData['bride_first_name'] ?? $customData['brides_first_name'] ?? $customData['Bride First Name'] ?? '') . ' ' .

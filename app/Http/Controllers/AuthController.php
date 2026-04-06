@@ -26,27 +26,18 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials)) {
             $user = Auth::user();
-
-            // HARD BLOCK: Check if this user has an active session on ANOTHER device
-            // We consider a session "active" if it was updated in the last 5 minutes.
-            /* 
-            $activeSession = DB::table('sessions')
-                ->where('user_id', $user->id)
-                ->where('id', '!=', session()->getId())
-                ->where('last_activity', '>=', now()->subMinutes(5)->getTimestamp())
-                ->first();
-
-            if ($activeSession) {
-                // Log the attempt and logout the current attempt
-                Auth::logout();
-                $request->session()->invalidate();
-                $request->session()->regenerateToken();
-
-                return back()->withErrors([
-                    'email' => 'This account is already logged in on another device. Please log out from that device first.',
-                ])->withInput($request->only('email'));
+            
+            // Check if the user's role still exists in the database (unless they are Admin)
+            if ($user->role !== 'Admin') {
+                $roleExists = \App\Models\Role::where('name', $user->role)->exists();
+                if (!$roleExists) {
+                    \App\Helpers\AuditLogger::log('Login Failure', 'Attempted login with a deleted or inactive role: ' . $user->role);
+                    Auth::logout();
+                    return back()->withErrors([
+                        'email' => 'Your account role is no longer active. Please contact the administrator.',
+                    ])->withInput($request->only('email'));
+                }
             }
-            */
 
             $request->session()->regenerate();
 
@@ -72,7 +63,34 @@ class AuthController extends Controller
      */
     private function redirectBasedOnRole($user)
     {
-        return redirect()->route('dashboard');
+        // 1. If user has dashboard access, that's the primary landing page
+        if ($user->hasModule('dashboard')) {
+            return redirect()->route('dashboard');
+        }
+
+        // 2. Otherwise, find the first available module to land on
+        // Logic mapping modules to routes
+        $moduleRoutes = [
+            'scheduling'       => 'schedules',
+            'service_requests' => 'service-requests.index',
+            'collections'      => 'collections',
+            'donations'        => 'donations',
+            'service_records'  => 'sacraments',
+            'reports'          => 'reports',
+            'system_settings'  => 'system-settings.index',
+            'system_roles'     => 'roles.index',
+            'user_accounts'    => 'users',
+            'audit_trail'      => 'audit-trail',
+        ];
+
+        foreach ($moduleRoutes as $module => $route) {
+            if ($user->hasModule($module)) {
+                return redirect()->route($route);
+            }
+        }
+
+        // 3. Last fallback: User profile or welcome
+        return redirect()->route('profile');
     }
 
     public function logout(Request $request)

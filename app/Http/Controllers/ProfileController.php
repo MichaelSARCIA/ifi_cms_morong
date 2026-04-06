@@ -73,7 +73,6 @@ class ProfileController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'current_password' => 'required_with:password|nullable|string',
             'password' => 'nullable|string|min:8|confirmed',
         ]);
 
@@ -81,9 +80,6 @@ class ProfileController extends Controller
         $user->name = $request->name;
 
         if ($request->filled('password')) {
-            if (!Hash::check($request->current_password, $user->password)) {
-                return redirect()->back()->with('error', 'Incorrect current password. Password not updated.');
-            }
             $user->password = Hash::make($request->password);
             AuditLogger::log('Update Password', 'Changed account password');
         }

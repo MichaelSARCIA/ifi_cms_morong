@@ -84,7 +84,7 @@
                                 </p>
                                 <div style="margin-top: 24px;">
                                     <p style="color: #cbd5e1; font-size: 12px; margin: 0;">
-                                        &copy; {{ date('Y') }} {{ $settings['system_name'] ?? 'IFI CMS' }}. All rights reserved.
+                                        &copy; {{ date('Y') }} {{ str_replace(["\r", "\n"], ' ', $settings['system_name'] ?? 'Iglesia Filipina Independiente') }}, All rights reserved.
                                     </p>
                                 </div>
                             </div>

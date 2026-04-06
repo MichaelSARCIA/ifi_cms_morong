@@ -16,8 +16,26 @@ class EnsureUserIsActive
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (Auth::check() && Auth::user()->status !== 'Active') {
-            Auth::user()->update(['status' => 'Active']);
+        if (Auth::check()) {
+            $user = Auth::user();
+            
+            // Check if user's role still exists (unless Admin)
+            if ($user->role !== 'Admin') {
+                $roleExists = \App\Models\Role::where('name', $user->role)->exists();
+                if (!$roleExists) {
+                    Auth::logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+                    
+                    return redirect()->route('login')->withErrors([
+                        'email' => 'Your session has ended because your account role is no longer active. Please contact the administrator.'
+                    ]);
+                }
+            }
+
+            if ($user->status !== 'Active') {
+                $user->update(['status' => 'Active']);
+            }
         }
 
         return $next($request);

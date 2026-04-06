@@ -45,67 +45,85 @@ class SchedulingController extends Controller
         $startDate = $start ? substr($start, 0, 10) : null;
         $endDate = $end ? substr($end, 0, 10) : null;
 
-        // 1. Fetch Manual Schedules
-        $scheduleQuery = Schedule::query()->with(['priest' => function($q) {
-            $q->select('id', 'name');
-        }]);
-        
-        if ($startDate && $endDate) {
-            $scheduleQuery->whereBetween('start_datetime', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
-        }
-
-        if ($eventType && $eventType !== 'All') {
-            $scheduleQuery->where('type', $eventType);
-        }
-
-        $scheduleQuery->whereIn('status', ['Scheduled', 'Approved']);
-
-        // ROLE FILTERING AND PRIEST PARAM FILTERING
         $user = auth()->user();
-        if ($user && $user->role === 'Priest') {
-            $scheduleQuery->where('priest_id', $user->id);
-        } else if ($request->filled('priest_id')) {
-            $scheduleQuery->where('priest_id', $request->priest_id);
+
+        // Strict Filtering Logic: Hide the other category if one is specifically selected
+        $fetchManual = true;
+        $fetchServices = true;
+
+        if ($eventType && $eventType !== 'All' && (!$serviceType || $serviceType === 'All')) {
+            $fetchServices = false;
         }
 
-        $manualEvents = $scheduleQuery->select(['id', 'title', 'start_datetime', 'end_datetime', 'type', 'description', 'status', 'priest_id'])
-            ->get()
-            ->map(function ($event) {
-                return [
-                    'id' => 'manual_' . $event->id,
-                    'title' => $event->title,
-                    'start' => $event->start_datetime->toIso8601String(),
-                    'end' => $event->end_datetime->toIso8601String(),
-                    'backgroundColor' => $this->getColorByType($event->type),
-                    'borderColor' => $this->getColorByType($event->type),
-                    'extendedProps' => [
-                        'type' => $event->type,
-                        'description' => e($event->description),
-                        'source' => 'manual',
-                        'priest_id' => $event->priest_id,
-                        'priest_name' => $event->priest ? $event->priest->name : null
-                    ]
-                ];
-            });
+        if ($serviceType && $serviceType !== 'All' && (!$eventType || $eventType === 'All')) {
+            $fetchManual = false;
+        }
+
+        // 1. Fetch Manual Schedules
+        $manualEvents = collect();
+        if ($fetchManual) {
+            $scheduleQuery = Schedule::query()->with(['priest' => function($q) {
+                $q->select('id', 'name');
+            }]);
+            
+            if ($startDate && $endDate) {
+                $scheduleQuery->whereBetween('start_datetime', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            }
+
+            if ($eventType && $eventType !== 'All') {
+                $scheduleQuery->where('type', $eventType);
+            }
+
+            $scheduleQuery->whereIn('status', ['Scheduled', 'Approved']);
+
+            // ROLE FILTERING AND PRIEST PARAM FILTERING
+            if ($user && $user->role === 'Priest') {
+                $scheduleQuery->where('priest_id', $user->id);
+            } else if ($request->filled('priest_id')) {
+                $scheduleQuery->where('priest_id', $request->priest_id);
+            }
+
+            $manualEvents = $scheduleQuery->select(['id', 'title', 'start_datetime', 'end_datetime', 'type', 'description', 'status', 'priest_id'])
+                ->get()
+                ->map(function ($event) {
+                    return [
+                        'id' => 'manual_' . $event->id,
+                        'title' => $event->title,
+                        'start' => $event->start_datetime->toIso8601String(),
+                        'end' => $event->end_datetime->toIso8601String(),
+                        'backgroundColor' => $this->getColorByType($event->type),
+                        'borderColor' => $this->getColorByType($event->type),
+                        'extendedProps' => [
+                            'type' => $event->type,
+                            'description' => e($event->description),
+                            'source' => 'manual',
+                            'priest_id' => $event->priest_id,
+                            'priest_name' => $event->priest ? $event->priest->name : null
+                        ]
+                    ];
+                });
+        }
 
         // 2. Fetch Service Requests (Approved, Completed, OR Paid)
-        $requestQuery = \App\Models\ServiceRequest::query()
-            ->select(['id', 'service_type', 'first_name', 'middle_name', 'last_name', 'suffix', 'fathers_name', 'mothers_name', 'contact_number', 'email', 'scheduled_date', 'scheduled_time', 'status', 'payment_status', 'details', 'requirements', 'priest_id', 'custom_data']);
+        $serviceEvents = collect();
+        if ($fetchServices) {
+            $requestQuery = \App\Models\ServiceRequest::query()
+                ->select(['id', 'service_type', 'first_name', 'middle_name', 'last_name', 'suffix', 'fathers_name', 'mothers_name', 'contact_number', 'email', 'scheduled_date', 'scheduled_time', 'status', 'payment_status', 'details', 'requirements', 'priest_id', 'custom_data']);
 
-        if ($startDate && $endDate) {
-            $requestQuery->whereBetween('scheduled_date', [$startDate, $endDate]);
-        }
+            if ($startDate && $endDate) {
+                $requestQuery->whereBetween('scheduled_date', [$startDate, $endDate]);
+            }
 
-        if ($serviceType && $serviceType !== 'All') {
-            $requestQuery->where('service_type', $serviceType);
-        }
+            if ($serviceType && $serviceType !== 'All') {
+                $requestQuery->where('service_type', $serviceType);
+            }
 
-        // Include Paid requests regardless of main status (except cancelled), OR Approved
+        // Only show on calendar: Approved status OR Paid payment_status (except Cancelled/Completed)
         $requestQuery->where(function ($q) {
-            $q->whereIn('status', ['Approved'])
+            $q->where('status', 'Approved')
               ->orWhere(function($sub) {
                   $sub->where('payment_status', 'Paid')
-                      ->where('status', '!=', 'Cancelled');
+                      ->whereNotIn('status', ['Cancelled', 'Completed']);
               });
         });
 
@@ -196,6 +214,7 @@ class SchedulingController extends Controller
                 ]
             ];
         });
+        }
 
         // Merge collections
         // Use toBase() to convert Eloquent Collection to Support Collection because map() apparently kept it as Eloquent collection in this context

@@ -6,7 +6,7 @@
             amount: 0, 
             date: '', 
             time: '',
-            paymentMethod: 'Cash', 
+            paymentMethod: '', 
             @php
                 $pms = $payment_methods ?? $data['payment_methods'] ?? collect();
             @endphp
@@ -22,8 +22,9 @@
             amountTendered: '', 
             referenceNumber: '',
             isCash() { return this.paymentMethod === 'Cash'; },
-            isElectronic() { return this.paymentMethod !== 'Cash'; },
+            isElectronic() { return this.paymentMethod !== 'Cash' && this.paymentMethod !== ''; },
             isProcessing: false,
+            referenceError: '',
             get changeDue() { 
                 const tendered = parseFloat(this.amountTendered) || 0;
                 return Math.max(0, tendered - this.amount);
@@ -96,18 +97,12 @@
                 allowedMethodIds = [];
             }
             
-            // Auto-select first allowed method or reset to Cash
-            const filtered = filteredMethods;
-            if (filtered.length > 0) {
-                // Check if Cash is allowed, otherwise pick first
-                const hasCash = filtered.some(m => m.name === 'Cash');
-                paymentMethod = hasCash ? 'Cash' : filtered[0].name;
-            } else {
-                paymentMethod = 'Cash';
-            }
+            // Require explicit payment method selection
+            paymentMethod = '';
 
             amountTendered = '';
             referenceNumber = '';
+            referenceError = '';
             isProcessing = false;
             modalOpen = true;
         "
@@ -169,7 +164,8 @@
                             <label class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Payment Method</label>
                             <div class="relative">
                                 <template x-if="filteredMethods.length > 0">
-                                    <select name="payment_method" x-model="paymentMethod" class="dropdown-btn w-full" :disabled="isProcessing">
+                                    <select name="payment_method" x-model="paymentMethod" class="dropdown-btn w-full" :disabled="isProcessing" required>
+                                        <option value="" disabled selected>Select Payment Method...</option>
                                         <template x-for="method in filteredMethods" :key="method.id">
                                             <option :value="method.name" x-text="method.name"></option>
                                         </template>
@@ -219,13 +215,19 @@
                              x-transition:enter-end="opacity-100 translate-y-0">
                             <label class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Reference No.</label>
                             <input type="text" name="reference_number" x-model="referenceNumber" :disabled="isProcessing"
-                                class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
+                                @input="referenceError = ''"
+                                :class="referenceError ? 'border-red-500 focus:ring-red-500/20' : 'border-gray-200 dark:border-gray-700 focus:ring-green-500/20 focus:border-green-500'"
+                                class="w-full bg-gray-50 dark:bg-gray-900 border rounded-xl px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 transition-all"
                                 placeholder="e.g. Ref No. 123456" :required="isElectronic()">
+                            <p x-show="referenceError" x-text="referenceError" 
+                                class="text-[11px] text-red-500 mt-1 font-bold animate-pulse"
+                                x-transition>
+                            </p>
                         </div>
 
                         <button type="submit"
-                            :disabled="isProcessing || (isCash() && (!amountTendered || parseFloat(amountTendered) < amount)) || (isElectronic() && !referenceNumber.trim())"
-                            :class="(isProcessing || (isCash() && (!amountTendered || parseFloat(amountTendered) < amount)) || (isElectronic() && !referenceNumber.trim()))
+                            :disabled="!paymentMethod || isProcessing || (isCash() && (!amountTendered || parseFloat(amountTendered) < amount)) || (isElectronic() && !referenceNumber.trim())"
+                            :class="(!paymentMethod || isProcessing || (isCash() && (!amountTendered || parseFloat(amountTendered) < amount)) || (isElectronic() && !referenceNumber.trim()))
                                 ? 'w-full bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 font-bold py-3.5 rounded-xl mt-2 cursor-not-allowed'
                                 : 'w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-3.5 rounded-xl mt-2 shadow-lg shadow-green-500/30 transition-all transform hover:-translate-y-0.5'">
                             <template x-if="!isProcessing">
@@ -280,7 +282,7 @@
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
                         'Accept': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                     },
                     body: formData
                 });
@@ -341,13 +343,25 @@
                     }
 
                 } else {
-                    window.showConfirmModal({
-                        title: 'Error',
-                        message: result.message || 'Payment processing failed.',
-                        btnClass: 'bg-red-600 hover:bg-red-700',
-                        confirmText: 'Okay',
-                        isAlert: true
-                    });
+                    // Extract validation errors if possible
+                    let errorMessage = result.message || 'Payment processing failed.';
+                    let isReferenceError = false;
+                    
+                    if (result.errors && result.errors.reference_number) {
+                        errorMessage = result.errors.reference_number[0];
+                        alpineData.referenceError = errorMessage;
+                        isReferenceError = true;
+                    }
+                    
+                    if (!isReferenceError) {
+                        window.showConfirmModal({
+                            title: 'Payment Error',
+                            message: errorMessage,
+                            btnClass: 'bg-red-600 hover:bg-red-700',
+                            confirmText: 'Okay',
+                            isAlert: true
+                        });
+                    }
                 }
             } catch (e) {
                 console.error(e);

@@ -37,24 +37,21 @@ class DashboardController extends Controller
         // Card 2: Total Services Available
         // Card 2: Total Services Available (Also used for fee mapping on modals)
         if ($user->role !== 'Priest') {
-            $data['total_services_list'] = \Cache::remember('total_services_list', $cacheTime, function () {
-                return DB::table('service_types')->orderBy('name')->get(['name', 'icon', 'color', 'fee']);
-            });
+            $data['total_services_list'] = DB::table('service_types')
+                ->whereNull('deleted_at')
+                ->orderBy('name')
+                ->get(['name', 'icon', 'color', 'fee']);
         }
 
         // Card 3 & 4: Total Collection & Donation Frequencies
         if ($user->hasModule('collections') || $user->hasModule('donations') || $user->hasModule('finance')) {
-            $data['collection_frequency'] = \Cache::remember('collection_freq_this_year', $cacheTime, function () {
-                return DB::table('donations')
-                    ->whereIn('type', ['Collection', 'Mass Offering'])
-                    ->count();
-            });
+            $data['collection_frequency'] = DB::table('donations')
+                ->whereIn('type', ['Collection', 'Sunday Collection', 'Mass Offering', 'Special Collection', 'Other'])
+                ->count();
 
-            $data['donation_frequency'] = \Cache::remember('donation_freq_this_year', $cacheTime, function () {
-                return DB::table('donations')
-                    ->whereIn('type', ['Donation', 'Tithes', 'Love Offering'])
-                    ->count();
-            });
+            $data['donation_frequency'] = DB::table('donations')
+                ->whereIn('type', ['Donation', 'General Donation', 'Tithes', 'Love Offering', 'Others', 'Other'])
+                ->count();
         }
 
         // ============================================================
@@ -103,11 +100,11 @@ class DashboardController extends Controller
             $data['fin_group_by'] = $finGroupBy;
 
             $collectionsQuery = DB::table('donations')
-                ->whereIn('type', ['Collection', 'Mass Offering'])
+                ->whereIn('type', ['Collection', 'Sunday Collection', 'Mass Offering', 'Special Collection', 'Other'])
                 ->whereBetween('date_received', [$finStartDate, $finEndDate]);
 
             $donationsQuery = DB::table('donations')
-                ->whereIn('type', ['Donation', 'Tithes', 'Love Offering'])
+                ->whereIn('type', ['Donation', 'General Donation', 'Tithes', 'Love Offering', 'Others', 'Other'])
                 ->whereBetween('date_received', [$finStartDate, $finEndDate]);
 
             $feesQuery = DB::table('payments')
@@ -215,9 +212,11 @@ class DashboardController extends Controller
 
             $serviceRequests = ServiceRequest::where(function ($q) {
                     $q->where('status', 'Approved')
-                      ->orWhere('payment_status', 'Paid');
+                      ->orWhere(function($sub) {
+                          $sub->where('payment_status', 'Paid')
+                              ->whereNotIn('status', ['Cancelled', 'Completed']);
+                      });
                 })
-                ->where('status', '!=', 'Cancelled')
                 ->where('scheduled_date', '>=', now()->toDateString())
                 ->get(['id', 'first_name', 'last_name', 'middle_name', 'service_type', 'scheduled_date', 'scheduled_time', 'custom_data'])
                 ->map(function ($item) {
@@ -245,9 +244,7 @@ class DashboardController extends Controller
 
         $data['payment_methods'] = PaymentMethod::active()->orderBy('sort_order')->orderBy('id')->get();
 
-        $data['all_service_types'] = \Cache::remember('all_service_types_list', $cacheTime, function () {
-            return \App\Models\ServiceType::orderBy('name')->pluck('name');
-        });
+        $data['all_service_types'] = \App\Models\ServiceType::orderBy('name')->pluck('name');
 
         return view('dashboard', compact('data'));
     }

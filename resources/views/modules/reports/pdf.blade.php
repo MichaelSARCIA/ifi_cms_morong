@@ -32,7 +32,7 @@
             <tr>
                 <td style="width: 90px; border: none; padding: 0; vertical-align: middle;">
                     @if(isset($logo) && $logo)
-                        <img src="{{ public_path('storage/' . $logo) }}" style="width: 85px; height: auto; display: block;">
+                        <img src="{{ public_path('uploads/' . $logo) }}" style="width: 85px; height: auto; display: block;">
                     @else
                         <img src="{{ public_path('assets/img/logo.png') }}" style="width: 85px; height: auto; display: block;">
                     @endif
@@ -59,44 +59,34 @@
 
     @if($category === 'applicants')
         @if(isset($applicantList) && count($applicantList) > 0)
-            <table>
+            <table style="font-size: 9px; width: 100%;">
                 <thead>
                     <tr>
-                        <th style="width:4%;">No.</th>
-                        <th style="width:16%;">Name</th>
-                        <th style="width:20%;">Address</th>
-                        <th style="width:12%;">Age / DOB</th>
-                        <th style="width:10%;">Gender</th>
-                        <th style="width:12%;">Civil Status</th>
-                        <th style="width:13%;">Contact No.</th>
-                        <th style="width:13%;">Email</th>
+                        <th style="width: 4%;">No.</th>
+                        <th style="width: 18%;">Name of Recipient</th>
+                        <th style="width: 14%;">Date of Birth & Age</th>
+                        <th style="width: 14%;">Place of Birth</th>
+                        <th style="width: 22%;">Parents' Names</th>
+                        <th style="width: 16%;">Address</th>
+                        <th style="width: 12%;">Service / Sacrament</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($applicantList as $applicant)
-                    @php
-                        $customData = $applicant->filtered_custom_data;
-                        $address = $customData['complete_address'] ?? '';
-                        $age = $customData['age'] ?? ($customData['age_date_of_birth'] ?? '');
-                        $civilStatus = $customData['civil_status'] ?? '';
-                        $gender = $customData['gender'] ?? '';
-                        $email = $applicant->email ?? ($customData['email_address'] ?? '');
-                    @endphp
                     <tr>
-                        <td style="text-align:center; font-weight:bold;">{{ $loop->iteration }}.</td>
-                        <td style="font-weight:bold;">{{ $applicant->applicant_name }}</td>
-                        <td>{{ $address }}</td>
-                        <td>{{ $age }}</td>
-                        <td>{{ $gender }}</td>
-                        <td>{{ $civilStatus }}</td>
-                        <td>{{ $applicant->contact_number ?? 'N/A' }}</td>
-                        <td>{{ $email }}</td>
+                        <td style="text-align:center;"><strong>{{ $loop->iteration }}</strong></td>
+                        <td><strong>{{ $applicant->recipient_name_formal }}</strong></td>
+                        <td>{{ $applicant->recipient_dob_age }}</td>
+                        <td>{{ $applicant->recipient_pob }}</td>
+                        <td style="white-space: pre-line;">{{ $applicant->recipient_parents }}</td>
+                        <td>{{ $applicant->recipient_address }}</td>
+                        <td>{{ $applicant->service_type }}</td>
                     </tr>
                     @endforeach
                 </tbody>
             </table>
         @else
-            <p class="italic text-center text-gray">No applicants found in this period.</p>
+            <p class="italic text-center text-gray">No recipients found in this period.</p>
         @endif
     @endif
 
@@ -106,18 +96,20 @@
                 <thead>
                     <tr>
                         <th style="width: 5%;">No.</th>
-                        <th style="width: 25%;">Date</th>
-                        <th style="width: 30%;">Service Type</th>
-                        <th style="width: 40%;">Requested By</th>
+                        <th style="width: 20%;">Date</th>
+                        <th style="width: 25%;">Service Type</th>
+                        <th style="width: 25%;">Requested By</th>
+                        <th style="width: 25%;">Subject / Beneficiary</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($serviceRequestsList as $req)
                     <tr>
-                        <td class="font-bold">{{ $loop->iteration }}.</td>
+                        <td class="font-bold border-bottom" style="text-align: center;">{{ $loop->iteration }}.</td>
                         <td>{{ \Carbon\Carbon::parse($req->request_date)->format('F d, Y') }}</td>
                         <td>{{ $req->service_type }}</td>
-                        <td class="font-bold">{{ $req->client_name }}</td>
+                        <td class="font-bold">{{ $req->applicant_name }}</td>
+                        <td class="font-bold">{{ $req->subject_name }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -133,9 +125,10 @@
                 <thead>
                     <tr>
                         <th style="width: 5%;">No.</th>
-                        <th style="width: 25%;">Date</th>
-                        <th style="width: 40%;">Source/Event</th>
-                        <th style="width: 30%;" class="text-right">Amount (PHP)</th>
+                        <th style="width: 15%;">Date</th>
+                        <th style="width: 25%;">Type</th>
+                        <th style="width: 35%;">Source/Event</th>
+                        <th style="width: 20%;" class="text-right">Amount (PHP)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -143,7 +136,13 @@
                     <tr>
                         <td class="font-bold">{{ $loop->iteration }}.</td>
                         <td>{{ \Carbon\Carbon::parse($col->date_received)->format('F d, Y') }}</td>
-                        <td class="font-bold">{{ \App\Models\ServiceRequest::formatValue($col->donor_name) }}</td>
+                        <td style="color: #444;">{{ $col->type }}</td>
+                        <td class="font-bold">
+                            {{ $col->remarks }}
+                            @if(isset($col->notes) && $col->notes)
+                                <br><span style="font-weight:normal; font-style:italic; font-size:10px; color:#555;">{{ $col->notes }}</span>
+                            @endif
+                        </td>
                         <td class="text-right">PHP {{ number_format($col->amount, 2) }}</td>
                     </tr>
                     @endforeach
@@ -160,9 +159,11 @@
                 <thead>
                     <tr>
                         <th style="width: 5%;">No.</th>
-                        <th style="width: 25%;">Date</th>
-                        <th style="width: 40%;">Donor Name</th>
-                        <th style="width: 30%;" class="text-right">Amount (PHP)</th>
+                        <th style="width: 15%;">Date</th>
+                        <th style="width: 25%;">Donor Name</th>
+                        <th style="width: 25%;">Fund / Purpose</th>
+                        <th style="width: 15%;">Mode of Payment</th>
+                        <th style="width: 15%;" class="text-right">Amount (PHP)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -171,6 +172,8 @@
                         <td class="font-bold">{{ $loop->iteration }}.</td>
                         <td>{{ \Carbon\Carbon::parse($don->date_received)->format('F d, Y') }}</td>
                         <td class="font-bold">{{ $don->donor_name ?? 'Anonymous' }}</td>
+                        <td>{{ $don->type ?? '—' }}</td>
+                        <td>{{ $don->payment_method ?? '—' }}</td>
                         <td class="text-right">PHP {{ number_format($don->amount, 2) }}</td>
                     </tr>
                     @endforeach

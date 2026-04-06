@@ -35,7 +35,12 @@ class ReportController extends Controller
 
         if ($category === 'donations' || $category === 'all') {
             $data['donations'] = \DB::table('donations')
-                ->whereIn('type', ['Donation', 'Tithes', 'Love Offering'])
+                ->whereIn('type', [
+                    'Donation', 'General Donation', 'Tithes', 'Love Offering',
+                    'Building Fund', 'Fiesta Sponsorship', 'Charity / Outreach',
+                    'Youth Ministry', 'Memorial / Candle Offering', 'Flower / Altar Offering',
+                    'Mission Fund', 'Others', 'Other'
+                ])
                 ->whereBetween('date_received', [$startDate, $endDate])
                 ->orderBy('date_received', 'desc')
                 ->get();
@@ -43,7 +48,7 @@ class ReportController extends Controller
 
         if ($category === 'collections' || $category === 'all') {
             $data['collections'] = \DB::table('donations')
-                ->whereIn('type', ['Collection', 'Mass Offering'])
+                ->whereIn('type', ['Collection', 'Sunday Collection', 'Mass Offering', 'Special Collection', 'Other'])
                 ->whereBetween('date_received', [$startDate, $endDate])
                 ->orderBy('date_received', 'desc')
                 ->get();
@@ -92,7 +97,7 @@ class ReportController extends Controller
 
         $allCategories = [
             'services'    => ['module' => 'service_requests', 'label' => 'Services Availed'],
-            'applicants'  => ['module' => 'service_requests', 'label' => 'List of Applicants'],
+            'applicants'  => ['module' => 'service_requests', 'label' => 'List of Recipients'],
             'collections' => ['module' => 'collections',       'label' => 'Collections & Offerings'],
             'donations'   => ['module' => 'donations',         'label' => 'Donations & Tithes'],
             'fees'        => ['module' => 'services_fees',     'label' => 'Service Fees Paid'],
@@ -128,7 +133,7 @@ class ReportController extends Controller
         $data['parishEmail'] = $settings['parish_email'] ?? 'sangeronimo.ifi@gmail.com';
         $data['dioceseName'] = $settings['diocese_name'] ?? 'Diocese of Rizal and Pampanga';
         $data['availableCategories'] = $availableCategories;
-        $data['serviceTypes'] = \App\Models\ServiceType::orderBy('name')->pluck('name')->toArray();
+        $data['serviceTypes'] = \App\Models\ServiceType::orderBy('id')->pluck('name')->toArray();
 
         return view('modules.reports.index', $data);
     }
@@ -139,6 +144,7 @@ class ReportController extends Controller
 
         $allCategories = [
             'services'    => 'service_requests',
+            'applicants'  => 'service_requests',
             'collections' => 'collections',
             'donations'   => 'donations',
             'fees'        => 'services_fees',
@@ -217,6 +223,7 @@ class ReportController extends Controller
 
         $categoryNames = [
             'services' => 'Services Availed Report',
+            'applicants' => 'List of Recipients',
             'collections' => 'Collections & Mass Offerings Report',
             'donations' => 'Donations & Tithes Report',
             'fees' => 'Service Fees Processed Report',
@@ -265,17 +272,19 @@ class ReportController extends Controller
                 $table = $section->addTable('BorderlessTable');
                 $table->addRow();
                 $table->addCell(500)->addText("No.", ['bold' => true, 'size' => 11]);
-                $table->addCell(2500)->addText("Date", ['bold' => true, 'size' => 11]);
-                $table->addCell(4000)->addText("Source/Event", ['bold' => true, 'size' => 11]);
-                $table->addCell(3000)->addText("Amount (PHP)", ['bold' => true, 'size' => 11], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::END]);
+                $table->addCell(1500)->addText("Date", ['bold' => true, 'size' => 11]);
+                $table->addCell(2500)->addText("Type", ['bold' => true, 'size' => 11]);
+                $table->addCell(3500)->addText("Source/Event", ['bold' => true, 'size' => 11]);
+                $table->addCell(2000)->addText("Amount (PHP)", ['bold' => true, 'size' => 11], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::END]);
                 
                 $index = 1;
                 foreach ($data['collections'] as $col) {
                     $table->addRow();
                     $table->addCell(500)->addText($index . ".", ['bold' => true, 'size' => 11]);
-                    $table->addCell(2500)->addText(date('F d, Y', strtotime($col->date_received)), ['size' => 11]);
-                    $table->addCell(4000)->addText($col->donor_name ?? 'N/A', ['bold' => true, 'size' => 11]);
-                    $table->addCell(3000)->addText("PHP " . number_format($col->amount, 2), ['size' => 11], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::END]);
+                    $table->addCell(1500)->addText(date('F d, Y', strtotime($col->date_received)), ['size' => 11]);
+                    $table->addCell(2500)->addText($col->type, ['color' => '444444', 'size' => 11]);
+                    $table->addCell(3500)->addText($col->remarks . (isset($col->notes) && $col->notes ? " \n(" . $col->notes . ")" : ''), ['bold' => true, 'size' => 11]);
+                    $table->addCell(2000)->addText("PHP " . number_format($col->amount, 2), ['size' => 11], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::END]);
                     $index++;
                 }
             } else {
@@ -288,21 +297,78 @@ class ReportController extends Controller
                 $table = $section->addTable('BorderlessTable');
                 $table->addRow();
                 $table->addCell(500)->addText("No.", ['bold' => true, 'size' => 11]);
-                $table->addCell(2500)->addText("Date", ['bold' => true, 'size' => 11]);
-                $table->addCell(4000)->addText("Donor Name", ['bold' => true, 'size' => 11]);
-                $table->addCell(3000)->addText("Amount (PHP)", ['bold' => true, 'size' => 11], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::END]);
+                $table->addCell(1500)->addText("Date", ['bold' => true, 'size' => 11]);
+                $table->addCell(2500)->addText("Donor Name", ['bold' => true, 'size' => 11]);
+                $table->addCell(2500)->addText("Fund / Purpose", ['bold' => true, 'size' => 11]);
+                $table->addCell(1500)->addText("Payment", ['bold' => true, 'size' => 11]);
+                $table->addCell(1500)->addText("Amount", ['bold' => true, 'size' => 11], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::END]);
                 
                 $index = 1;
                 foreach ($data['donations'] as $don) {
                     $table->addRow();
                     $table->addCell(500)->addText($index . ".", ['bold' => true, 'size' => 11]);
-                    $table->addCell(2500)->addText(date('F d, Y', strtotime($don->date_received)), ['size' => 11]);
-                    $table->addCell(4000)->addText($don->donor_name ?? 'Anonymous', ['bold' => true, 'size' => 11]);
-                    $table->addCell(3000)->addText("PHP " . number_format($don->amount, 2), ['size' => 11], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::END]);
+                    $table->addCell(1500)->addText(date('F d, Y', strtotime($don->date_received)), ['size' => 11]);
+                    $table->addCell(2500)->addText($don->donor_name ?? 'Anonymous', ['bold' => true, 'size' => 11]);
+                    $table->addCell(2500)->addText($don->type ?? '—', ['size' => 11]);
+                    $table->addCell(1500)->addText($don->payment_method ?? '—', ['size' => 11]);
+                    $table->addCell(1500)->addText("PHP " . number_format($don->amount, 2), ['size' => 11], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::END]);
                     $index++;
                 }
             } else {
                 $section->addText("No donations received in this period.", ['italic' => true], $paraCenter);
+            }
+        }
+
+        if ($category === 'applicants') {
+            if (count($data['applicantList']) > 0) {
+                $table = $section->addTable([
+                    'borderSize' => 6, 
+                    'borderColor' => 'CCCCCC', 
+                    'cellMargin' => 80
+                ]);
+                $table->addRow();
+                $table->addCell(500, ['bgColor' => 'F2F2F2'])->addText("No.", ['bold' => true, 'size' => 9]);
+                $table->addCell(1500, ['bgColor' => 'F2F2F2'])->addText("Service", ['bold' => true, 'size' => 9]);
+                $table->addCell(2500, ['bgColor' => 'F2F2F2'])->addText("Subject Name", ['bold' => true, 'size' => 9]);
+                $table->addCell(3000, ['bgColor' => 'F2F2F2'])->addText("Important Details", ['bold' => true, 'size' => 9]);
+                $table->addCell(2000, ['bgColor' => 'F2F2F2'])->addText("Applicant (Requested By)", ['bold' => true, 'size' => 9]);
+                
+                $index = 1;
+                foreach ($data['applicantList'] as $applicant) {
+                    $customData = $applicant->filtered_custom_data;
+                    $type = strtolower($applicant->service_type);
+                    $impDetails = [];
+
+                    if (str_contains($type, 'baptism')) {
+                        if ($v = ($customData['date_of_birth'] ?? ($customData['Date of Birth'] ?? ''))) $impDetails[] = "Born: " . $v;
+                        if ($v = ($customData['place_of_birth'] ?? ($customData['Place of Birth'] ?? ''))) $impDetails[] = "Place: " . $v;
+                    } elseif (str_contains($type, 'funeral') || str_contains($type, 'wake')) {
+                        if ($v = ($customData['date_of_death'] ?? '')) $impDetails[] = "DOD: " . $v;
+                        if ($v = ($customData['cause_of_death'] ?? '')) $impDetails[] = "Cause: " . $v;
+                        if ($v = ($customData['age'] ?? '')) $impDetails[] = "Age: " . $v;
+                    } elseif (str_contains($type, 'wedding')) {
+                        if ($v = ($applicant->scheduled_date)) $impDetails[] = "Date: " . \Carbon\Carbon::parse($v)->format('M d, Y');
+                        if ($v = ($customData['venue'] ?? 'Church')) $impDetails[] = "Venue: " . $v;
+                    } elseif (str_contains($type, 'confirmation')) {
+                        if ($v = ($customData['date_of_birth'] ?? ($customData['Date of Birth'] ?? ''))) $impDetails[] = "Born: " . $v;
+                    } else {
+                        if ($v = ($applicant->email ?? ($customData['email_address'] ?? ''))) $impDetails[] = "Email: " . $v;
+                    }
+
+                    $table->addRow();
+                    $table->addCell(500)->addText($index . ".", ['size' => 9]);
+                    $table->addCell(1500)->addText($applicant->service_type, ['bold' => true, 'size' => 9]);
+                    $table->addCell(2500)->addText(strtoupper($applicant->subject_name), ['bold' => true, 'size' => 9]);
+                    $table->addCell(3000)->addText(implode(" | ", $impDetails), ['size' => 8]);
+                    
+                    $appCell = $table->addCell(2000);
+                    $appCell->addText($applicant->applicant_name, ['bold' => true, 'size' => 9]);
+                    $appCell->addText($applicant->contact_number ?? 'N/A', ['size' => 8, 'italic' => true]);
+                    
+                    $index++;
+                }
+            } else {
+                $section->addText("No applicants found in this period.", ['italic' => true], $paraCenter);
             }
         }
 
@@ -376,7 +442,7 @@ class ReportController extends Controller
         
         $categoryNames = [
             'services' => 'Services Availed Report',
-            'applicants' => 'List of Applicants',
+            'applicants' => 'List of Recipients',
             'collections' => 'Collections & Mass Offerings Report',
             'donations' => 'Donations & Tithes Report',
             'fees' => 'Service Fees Processed Report',

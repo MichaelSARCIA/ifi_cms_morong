@@ -14,8 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\EnsureUserIsActive::class,
             \App\Http\Middleware\UpdateUserActivity::class,
-            \App\Http\Middleware\SingleDeviceSession::class,
         ]);
+
+        $middleware->trustProxies(at: '*');
 
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
@@ -23,5 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) {
+            return redirect()->route('login')->with('error', 'Your session has expired. Please log in again.');
+        });
     })->create();

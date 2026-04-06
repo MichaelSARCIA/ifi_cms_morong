@@ -12,6 +12,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
+use Ifsnop\Mysqldump\Mysqldump;
+
+// Manual include as fallback for environment issues
+if (!class_exists(Mysqldump::class)) {
+    $path = base_path('vendor/ifsnop/mysqldump-php/src/Ifsnop/Mysqldump/Mysqldump.php');
+    if (file_exists($path)) {
+        require_once $path;
+    }
+}
 
 class SystemSettingController extends Controller
 {
@@ -40,7 +49,7 @@ class SystemSettingController extends Controller
                 'name' => $file->getFilename(),
                 'size' => $size,
                 'path' => $file->getPathname(),
-                'last_modified' => \Carbon\Carbon::createFromTimestamp($file->getMTime()),
+                'last_modified' => \Carbon\Carbon::createFromTimestamp($file->getMTime())->timezone(config('app.timezone', 'Asia/Manila')),
             ];
         })->sortByDesc('last_modified')->values()->toArray();
 
@@ -203,10 +212,10 @@ class SystemSettingController extends Controller
 
     public function backupDatabase()
     {
-        $filename = 'backup-' . date('Y-m-d-H-i-s') . '.sql';
+        $filename = 'backup-' . now()->format('Y-m-d-H-i-s') . '.sql';
 
-        if (!file_exists(storage_path('app/backups'))) {
-            mkdir(storage_path('app/backups'), 0755, true);
+        if (!File::exists(storage_path('app/backups'))) {
+            File::makeDirectory(storage_path('app/backups'), 0755, true);
         }
 
         $path = storage_path('app/backups/' . $filename);
@@ -216,31 +225,32 @@ class SystemSettingController extends Controller
         $host = config('database.connections.mysql.host');
         $db   = config('database.connections.mysql.database');
 
-        $passStr = empty($pass) ? "" : "--password=\"" . addslashes($pass) . "\"";
+        try {
+            $dump = new Mysqldump("mysql:host=$host;dbname=$db", $user, $pass, [
+                'add-drop-table' => true,
+                'single-transaction' => true,
+                'lock-tables' => false,
+                'add-locks' => true,
+                'extended-insert' => true,
+                'disable-keys' => true,
+                'default-character-set' => 'utf8mb4',
+            ]);
+            
+            // Start the dump
+            $dump->start($path);
 
-        // Try standard path first
-        $command = "mysqldump --user=" . escapeshellarg($user) . " {$passStr} --host=" . escapeshellarg($host) . " " . escapeshellarg($db) . " > " . escapeshellarg($path) . " 2>&1";
-        exec($command, $output, $result);
-
-        if ($result !== 0) {
-            $xamppPath = "C:\\xampp\\mysql\\bin\\mysqldump.exe";
-            if (file_exists($xamppPath)) {
-                $command = "\"$xamppPath\" --user=" . escapeshellarg($user) . " {$passStr} --host=" . escapeshellarg($host) . " " . escapeshellarg($db) . " > " . escapeshellarg($path) . " 2>&1";
-                exec($command, $output, $result);
-            }
-        }
-
-        if ($result === 0) {
+            // Prepend/Append foreign key checks to the file
             $sql = file_get_contents($path);
             $newSql = "SET FOREIGN_KEY_CHECKS=0;\n" . $sql . "\nSET FOREIGN_KEY_CHECKS=1;\n";
             file_put_contents($path, $newSql);
 
             AuditLogger::log('Database Backup', 'Created database backup details');
             return redirect()->back()->with('success', 'Backup generated successfully.');
-        }
 
-        \Log::error("Database backup failed: " . implode("\n", $output));
-        return redirect()->back()->with('error', 'Backup failed. Check server configuration.');
+        } catch (\Exception $e) {
+            \Log::error("Database backup failed: " . $e->getMessage());
+            return redirect()->back()->with('error', 'Backup failed: ' . $e->getMessage());
+        }
     }
 
     public function restoreDatabase(Request $request)
@@ -250,42 +260,24 @@ class SystemSettingController extends Controller
         ]);
 
         $file = $request->file('backup_file');
-        
-        // Wrap the SQL with foreign key checks disable/enable to ensure safe restore
         $sqlContent = file_get_contents($file->getRealPath());
-        $tempPath = storage_path('app/temp_restore_' . time() . '.sql');
-        $wrappedSql = "SET FOREIGN_KEY_CHECKS=0;\n" . $sqlContent . "\nSET FOREIGN_KEY_CHECKS=1;";
-        file_put_contents($tempPath, $wrappedSql);
 
-        $user = config('database.connections.mysql.username');
-        $pass = config('database.connections.mysql.password');
-        $host = config('database.connections.mysql.host');
-        $db   = config('database.connections.mysql.database');
+        try {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+            
+            // Execute the SQL content. 
+            // Note: DB::unprepared is used to execute multiple statements at once.
+            DB::unprepared($sqlContent);
+            
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-        $passStr = empty($pass) ? "" : "--password=\"" . addslashes($pass) . "\"";
-
-        // Try standard path first
-        $command = "mysql --user=" . escapeshellarg($user) . " {$passStr} --host=" . escapeshellarg($host) . " " . escapeshellarg($db) . " < " . escapeshellarg($tempPath) . " 2>&1";
-        exec($command, $output, $result);
-
-        if ($result !== 0) {
-            $xamppPath = "C:\\xampp\\mysql\\bin\\mysql.exe";
-            if (file_exists($xamppPath)) {
-                $command = "\"$xamppPath\" --user=" . escapeshellarg($user) . " {$passStr} --host=" . escapeshellarg($host) . " " . escapeshellarg($db) . " < " . escapeshellarg($tempPath) . " 2>&1";
-                exec($command, $output, $result);
-            }
-        }
-
-        // Clean up temp file
-        if (file_exists($tempPath)) unlink($tempPath);
-
-        if ($result === 0) {
             AuditLogger::log('Database Restore', 'Restored database from backup');
             return redirect()->back()->with('success', 'Database restored successfully.');
+
+        } catch (\Exception $e) {
+            \Log::error("Database restore failed: " . $e->getMessage());
+            return redirect()->back()->with('error', 'Restore failed: ' . $e->getMessage());
         }
-        
-        \Log::error("Database restore failed: " . implode("\n", $output));
-        return redirect()->back()->with('error', 'Restore failed. Check server configuration.');
     }
 
     public function downloadBackup($filename)
@@ -317,15 +309,23 @@ class SystemSettingController extends Controller
             'name'       => 'required|string|max:100',
             'icon'       => 'nullable|string|max:100',
             'is_active'  => 'boolean',
-            'sort_order' => 'nullable|integer|min:0',
         ]);
         $maxOrder = PaymentMethod::max('sort_order') ?? 0;
-        PaymentMethod::create([
+        $method = PaymentMethod::create([
             'name'       => $validated['name'],
             'icon'       => $validated['icon'] ?? 'fa-money-bill',
             'is_active'  => $request->boolean('is_active', true),
-            'sort_order' => $validated['sort_order'] ?? ($maxOrder + 1),
+            'sort_order' => $maxOrder + 1,
         ]);
+
+        $services = ServiceType::all();
+        foreach ($services as $service) {
+            $payment_methods = $service->payment_methods ?? [];
+            if (!in_array($method->id, $payment_methods)) {
+                $payment_methods[] = $method->id;
+                $service->update(['payment_methods' => array_map('intval', $payment_methods)]);
+            }
+        }
         AuditLogger::log('Create Payment Method', "Added payment method: {$validated['name']}");
         return redirect()->back()->with('success', 'Payment method added successfully.');
     }
@@ -337,13 +337,11 @@ class SystemSettingController extends Controller
             'name'       => 'required|string|max:100',
             'icon'       => 'nullable|string|max:100',
             'is_active'  => 'boolean',
-            'sort_order' => 'nullable|integer|min:0',
         ]);
         $method->update([
             'name'       => $validated['name'],
             'icon'       => $validated['icon'] ?? 'fa-money-bill',
             'is_active'  => $request->boolean('is_active', true),
-            'sort_order' => $validated['sort_order'] ?? $method->sort_order,
         ]);
         AuditLogger::log('Update Payment Method', "Updated payment method: {$method->name}");
         return redirect()->back()->with('success', 'Payment method updated successfully.');

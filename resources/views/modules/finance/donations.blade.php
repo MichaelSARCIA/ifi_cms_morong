@@ -1,17 +1,16 @@
 @extends('layouts.app')
 @use('App\Helpers\ServiceHelper')
 
-@section('title', 'Donations')
-@section('role_label', 'Treasurer')
-
-
-
 @php
+    $tabTitle = $isFeePage ?? false ? 'Services Fees' : 'Donations';
     $pageTitle = $isFeePage ?? false ? 'Services Fees Registry' : 'Donations Registry';
     $pageSubtitle = $isFeePage ?? false ? 'Manage service fees and payments' : 'Manage donations and tithes';
     $btnLabel = $isFeePage ?? false ? 'Record Fee' : 'Record Donation';
     $payerLabel = $isFeePage ?? false ? 'Payer Name' : 'Donor Name';
 @endphp
+
+@section('title', $tabTitle)
+@section('role_label', 'Treasurer')
 
 @section('page_title', $pageTitle)
 @section('page_subtitle', $pageSubtitle)
@@ -20,7 +19,7 @@
     <!-- ACTION BAR -->
     @if(!($isFeePage ?? false))
         <div class="flex justify-end shrink-0 mb-6">
-            <button onclick="document.getElementById('addModal').classList.remove('hidden')"
+            <button onclick="openDonationModal()"
                 class="flex items-center gap-2 bg-gradient-to-r from-primary to-blue-600 hover:from-blue-700 hover:to-primary text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-all transform hover:-translate-y-0.5">
                 <i class="fas fa-plus"></i> {{ $btnLabel }}
             </button>
@@ -88,13 +87,20 @@
                             class="w-full lg:w-48 pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-medium text-gray-700 dark:text-gray-300">
                     </div>
 
-                    <div class="relative max-w-[200px] w-full lg:w-auto">
+                    <div class="relative max-w-[220px] w-full lg:w-auto">
                         <select name="donation_type" @change="submitSearch"
                             class="dropdown-btn w-full lg:w-auto">
-                            <option value="">All Donation Types</option>
+                            <option value="">All Fund Types</option>
                             <option value="General Donation" {{ request('donation_type') == 'General Donation' ? 'selected' : '' }}>General Donation</option>
                             <option value="Tithes" {{ request('donation_type') == 'Tithes' ? 'selected' : '' }}>Tithes</option>
                             <option value="Love Offering" {{ request('donation_type') == 'Love Offering' ? 'selected' : '' }}>Love Offering</option>
+                            <option value="Building Fund" {{ request('donation_type') == 'Building Fund' ? 'selected' : '' }}>Building Fund</option>
+                            <option value="Fiesta Sponsorship" {{ request('donation_type') == 'Fiesta Sponsorship' ? 'selected' : '' }}>Fiesta Sponsorship</option>
+                            <option value="Charity / Outreach" {{ request('donation_type') == 'Charity / Outreach' ? 'selected' : '' }}>Charity / Outreach</option>
+                            <option value="Youth Ministry" {{ request('donation_type') == 'Youth Ministry' ? 'selected' : '' }}>Youth Ministry</option>
+                            <option value="Memorial / Candle Offering" {{ request('donation_type') == 'Memorial / Candle Offering' ? 'selected' : '' }}>Memorial / Candle Offering</option>
+                            <option value="Flower / Altar Offering" {{ request('donation_type') == 'Flower / Altar Offering' ? 'selected' : '' }}>Flower / Altar Offering</option>
+                            <option value="Mission Fund" {{ request('donation_type') == 'Mission Fund' ? 'selected' : '' }}>Mission Fund</option>
                             <option value="Others" {{ request('donation_type') == 'Others' ? 'selected' : '' }}>Others</option>
                         </select>
                     </div>
@@ -118,7 +124,10 @@
                     <tr>
                         <th class="px-6 py-4">Date</th>
                         <th class="px-6 py-4">{{ $payerLabel }}</th>
-                        <th class="px-6 py-4">{{ $isFeePage ? 'Service Type' : 'Type' }}</th>
+                        <th class="px-6 py-4">{{ $isFeePage ? 'Service Type' : 'Fund / Purpose' }}</th>
+                        @if(!($isFeePage ?? false))
+                            <th class="px-6 py-4">Mode of Payment</th>
+                        @endif
                         <th class="px-6 py-4 text-right">Amount</th>
                         @if($isFeePage)
                             @if(Auth::user()->role !== 'Priest')
@@ -140,11 +149,11 @@
                                     <div class="flex items-center gap-2">
                                         <div
                                             class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">
-                                            {{ strtoupper(substr($row->first_name, 0, 1)) }}
+                                            {{ strtoupper(substr($row->applicant_name, 0, 1)) }}
                                         </div>
                                         <div>
-                                            <p class="text-base font-bold text-gray-900 dark:text-white leading-tight">{{ $row->first_name }}
-                                                {{ $row->last_name }}
+                                            <p class="text-base font-bold text-gray-900 dark:text-white leading-tight">
+                                                {{ $row->applicant_name }}
                                             </p>
                                             <p class="text-xs text-gray-400">Req #{{ $row->id }}</p>
                                         </div>
@@ -232,22 +241,40 @@
                                     </div>
                                 </td>
                                 <td class="px-6 py-4">
-                                    @php
-                                    $donConfig = match($row->type) {
-                                        'General Donation', 'Donation' => ['label' => 'General Donation', 'icon' => 'fa-heart'],
-                                        'Tithes'                       => ['label' => 'Tithes',           'icon' => 'fa-hand-holding-usd'],
-                                        'Others', 'Other'              => ['label' => 'Others',           'icon' => 'fa-circle-plus'],
-                                        default                        => ['label' => $row->type,          'icon' => 'fa-star'],
-                                    };
+                                @php
+                                $donConfig = match(true) {
+                                    in_array($row->type, ['General Donation', 'Donation']) => ['label' => 'General Donation',         'icon' => 'fa-heart'],
+                                    $row->type === 'Tithes'                                 => ['label' => 'Tithes',                  'icon' => 'fa-hand-holding-usd'],
+                                    $row->type === 'Love Offering'                          => ['label' => 'Love Offering',           'icon' => 'fa-star'],
+                                    $row->type === 'Building Fund'                          => ['label' => 'Building Fund',           'icon' => 'fa-building'],
+                                    $row->type === 'Fiesta Sponsorship'                     => ['label' => 'Fiesta Sponsorship',      'icon' => 'fa-flag'],
+                                    $row->type === 'Charity / Outreach'                     => ['label' => 'Charity / Outreach',      'icon' => 'fa-hands-helping'],
+                                    $row->type === 'Youth Ministry'                         => ['label' => 'Youth Ministry',          'icon' => 'fa-users'],
+                                    $row->type === 'Memorial / Candle Offering'             => ['label' => 'Memorial / Candle',       'icon' => 'fa-candle-holder'],
+                                    $row->type === 'Flower / Altar Offering'                => ['label' => 'Flower / Altar Offering', 'icon' => 'fa-seedling'],
+                                    $row->type === 'Mission Fund'                           => ['label' => 'Mission Fund',            'icon' => 'fa-globe'],
+                                    in_array($row->type, ['Others', 'Other'])               => ['label' => 'Others',                  'icon' => 'fa-circle-plus'],
+                                    default                                                  => ['label' => $row->type,                'icon' => 'fa-star'],
+                                };
                                 @endphp
                                 <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm font-bold {{ ServiceHelper::getDonationBadgeClass($row->type) }}">
                                     <i class="fas {{ $donConfig['icon'] }} text-[10px]"></i>
                                     {{ $donConfig['label'] }}
                                 </span>
-                                </td>
-                                <td class="px-6 py-4 text-right text-lg font-bold text-gray-900 dark:text-white">₱
-                                    {{ number_format($row->amount, 2) }}
-                                </td>
+                            </td>
+                            <td class="px-6 py-4">
+                                @if(isset($row->payment_method) && $row->payment_method)
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                        <i class="fas fa-credit-card text-[10px]"></i>
+                                        {{ $row->payment_method }}
+                                    </span>
+                                @else
+                                    <span class="text-xs text-gray-400 italic">—</span>
+                                @endif
+                            </td>
+                            <td class="px-6 py-4 text-right text-lg font-bold text-gray-900 dark:text-white">₱
+                                {{ number_format($row->amount, 2) }}
+                            </td>
                             @endif
                         </tr>
                     @empty
@@ -268,7 +295,7 @@
 
     <!-- Modal -->
     @if(!($isFeePage ?? false))
-        <div id="addModal" class="hidden fixed inset-0 z-50 overflow-y-auto"
+        <div id="addModal" class="{{ $errors->any() ? '' : 'hidden' }} fixed inset-0 z-50 overflow-y-auto"
             style="background-color: rgba(0,0,0,0.5);">
             <div class="relative min-h-screen flex items-center justify-center p-4 backdrop-blur-sm">
             <div
@@ -282,16 +309,15 @@
                         class="text-gray-400 hover:text-gray-600">
                         <i class="fas fa-times"></i>
                     </button>
-                </div>
-
-                <form action="{{ route('donations.store') }}" method="POST"
+                </div>                <form action="{{ route('donations.store') }}" method="POST"
                     onsubmit="return confirmDonationSubmit(event, this)">
                     @csrf
                     <div class="space-y-4">
-                        <div x-data="{ isAnonymous: false, donorName: '' }">
+                        {{-- Donor Name --}}
+                        <div x-data="{ isAnonymous: {{ old('donor_name') === 'Anonymous' ? 'true' : 'false' }}, donorName: '{{ old('donor_name') !== 'Anonymous' ? addslashes(old('donor_name')) : '' }}' }">
                             <div class="flex items-center justify-between mb-2">
                                 <label
-                                    class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $payerLabel }}</label>
+                                    class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $payerLabel }} <span class="text-red-500">*</span></label>
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input type="checkbox" x-model="isAnonymous" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600">
                                     <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Anonymous</span>
@@ -305,72 +331,106 @@
                                 class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-primary transition-all"
                                 required placeholder="e.g. Juan De La Cruz">
                         </div>
-                        <div
-                            x-data="{ type: '{{ $isFeePage ?? false ? 'Service Fee' : 'Donation' }}', selectedService: '', services: {{ $services->toJson() }} }">
-                            <div>
-                                <label
-                                    class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Type</label>
-                                <div class="relative group mb-4">
-                                    <select name="type" x-model="type" {{ $isFeePage ?? false ? 'readonly' : '' }}
-                                        class="dropdown-btn w-full">
-                                        @if($isFeePage ?? false)
-                                            <option value="Service Fee" selected>Service Fee</option>
-                                        @else
-                                            <option value="General Donation">General Donation</option>
-                                            <option value="Tithes">Tithes</option>
-                                            <option value="Love Offering">Love Offering</option>
-                                            <option value="Others">Others</option>
-                                        @endif
-                                    </select>
-                                </div>
-                            </div>
 
-                            <!-- Service Type Dropdown (Only for Service Fee) -->
-                            <div x-show="type === 'Service Fee'" style="display: none;" class="mb-4">
+                        {{-- Fund / Purpose --}}
+                        <div>
+                            <label
+                                class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Fund / Purpose <span class="text-red-500">*</span></label>
+                            <div class="relative group">
+                                <select name="type" required class="dropdown-btn w-full">
+                                    <option value="">Select fund / purpose...</option>
+                                    <option value="General Donation" {{ old('type') == 'General Donation' ? 'selected' : '' }}>General Donation</option>
+                                    <option value="Tithes" {{ old('type') == 'Tithes' ? 'selected' : '' }}>Tithes</option>
+                                    <option value="Love Offering" {{ old('type') == 'Love Offering' ? 'selected' : '' }}>Love Offering</option>
+                                    <option value="Building Fund" {{ old('type') == 'Building Fund' ? 'selected' : '' }}>Building Fund</option>
+                                    <option value="Fiesta Sponsorship" {{ old('type') == 'Fiesta Sponsorship' ? 'selected' : '' }}>Fiesta Sponsorship</option>
+                                    <option value="Charity / Outreach" {{ old('type') == 'Charity / Outreach' ? 'selected' : '' }}>Charity / Outreach</option>
+                                    <option value="Youth Ministry" {{ old('type') == 'Youth Ministry' ? 'selected' : '' }}>Youth Ministry</option>
+                                    <option value="Memorial / Candle Offering" {{ old('type') == 'Memorial / Candle Offering' ? 'selected' : '' }}>Memorial / Candle Offering</option>
+                                    <option value="Flower / Altar Offering" {{ old('type') == 'Flower / Altar Offering' ? 'selected' : '' }}>Flower / Altar Offering</option>
+                                    <option value="Mission Fund" {{ old('type') == 'Mission Fund' ? 'selected' : '' }}>Mission Fund</option>
+                                    <option value="Others" {{ old('type') == 'Others' ? 'selected' : '' }}>Others</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {{-- Amount --}}
+                        <div>
+                            <label
+                                class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Amount (₱) <span class="text-red-500">*</span></label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <span class="text-gray-500 font-bold">₱</span>
+                                </div>
+                                <input type="number" step="0.01" name="amount" id="amountInput" value="{{ old('amount') }}"
+                                    class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-3 text-sm font-bold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-primary transition-all"
+                                    required placeholder="0.00">
+                            </div>
+                        </div>
+
+                        {{-- Date --}}
+                        <div>
+                            <label
+                                class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Date <span class="text-red-500">*</span></label>
+                            <div class="relative">
+                                <input type="text" name="date_received" id="donationDateInput" value="{{ old('date_received') }}"
+                                    placeholder="MM/DD/YYYY"
+                                    readonly required
+                                    class="datepicker-input w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-900 dark:text-white placeholder-gray-400">
+                                <i class="fas fa-calendar-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                            </div>
+                        </div>
+
+                        {{-- Mode of Payment with conditional Reference Number --}}
+                        <div x-data="{ payMethod: '{{ old('payment_method') }}' }">
+                            <div class="mb-4">
                                 <label
-                                    class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Service
-                                    Type</label>
+                                    class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Mode of Payment <span class="text-red-500">*</span></label>
                                 <div class="relative group">
-                                    <select name="remarks" x-model="selectedService"
-                                        @change="
-                                                                                                                                            const service = services.find(s => s.name === selectedService);
-                                                                                                                                            if(service) {
-                                                                                                                                                document.getElementById('amountInput').value = service.fee;
-                                                                                                                                            }
-                                                                                                                                        "
-                                        class="dropdown-btn w-full">
-                                        <option value="">Select Service...</option>
-                                        @foreach($services as $service)
-                                            <option value="{{ $service->name }}">{{ $service->name }}
-                                                (₱{{ number_format($service->fee, 2) }})</option>
+                                    <select name="payment_method" x-model="payMethod" required class="dropdown-btn w-full">
+                                        <option value="">Select payment method...</option>
+                                        @foreach($payment_methods as $pm)
+                                            <option value="{{ $pm->name }}">{{ $pm->name }}</option>
                                         @endforeach
                                     </select>
                                 </div>
                             </div>
-
-                            <div>
+                            {{-- Reference Number: show only for non-Cash methods --}}
+                            <div x-show="payMethod && payMethod.toLowerCase() !== 'cash'" x-transition style="display:none;">
                                 <label
-                                    class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Amount
-                                    (₱)</label>
-                                <div class="relative">
-                                    <span class="absolute left-4 top-3.5 text-gray-400">₱</span>
-                                    <input type="number" step="0.01" name="amount" id="amountInput"
-                                        class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl pl-8 pr-4 py-3 text-sm font-bold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-primary transition-all"
-                                        required placeholder="0.00">
-                                </div>
+                                    class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Reference Number <span class="text-red-500">*</span></label>
+                                <input type="text" name="reference_number" value="{{ old('reference_number') }}"
+                                    :required="payMethod && payMethod.toLowerCase() !== 'cash'"
+                                    class="w-full bg-gray-50 dark:bg-gray-900 border {{ $errors->has('reference_number') ? 'border-red-500 focus:ring-red-500/20' : 'border-gray-200 dark:border-gray-700 focus:ring-blue-500/20 focus:border-primary' }} rounded-xl px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 transition-all"
+                                    placeholder="e.g. GCash / Bank reference no.">
+                                @error('reference_number')
+                                    <p class="text-[11px] text-red-500 mt-1 font-bold animate-pulse">
+                                        <i class="fas fa-exclamation-circle mr-1"></i> {{ $message }}
+                                    </p>
+                                @enderror
                             </div>
                         </div>
+
+                        {{-- Remarks / Message (Optional) --}}
                         <div>
                             <label
-                                class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Date</label>
-                            <input type="date" name="date_received"
-                                class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-primary transition-all"
-                                required value="{{ date('Y-m-d') }}">
+                                class="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">Remarks / Message <span class="text-gray-400 font-normal text-xs normal-case">(Optional)</span></label>
+                            <textarea name="remarks" rows="2"
+                                class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-primary transition-all resize-none"
+                                placeholder="Additional message or note from donor...">{{ old('remarks') }}</textarea>
                         </div>
-                        <button type="submit"
-                            class="w-full bg-gradient-to-r from-primary to-blue-600 hover:from-blue-700 hover:to-primary text-white font-bold py-3.5 rounded-xl mt-2 shadow-lg shadow-blue-500/30 transition-all transform hover:-translate-y-0.5">
-                            Save Donation
-                        </button>
+
+                        {{-- Buttons --}}
+                        <div class="flex gap-3 mt-4">
+                            <button type="button" onclick="document.getElementById('addModal').classList.add('hidden')"
+                                class="w-1/2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold py-3.5 rounded-xl transition-colors">
+                                Cancel
+                            </button>
+                            <button type="submit"
+                                class="w-1/2 bg-gradient-to-r from-primary to-blue-600 hover:from-blue-700 hover:to-primary text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/30 transition-all transform hover:-translate-y-0.5">
+                                Save Donation
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -382,6 +442,49 @@
     @include('partials.payment_modal')
 
     <script>
+        let donationDatepicker = null;
+
+        function createModalDatepicker(el, onSelectCallback) {
+            return new AirDatepicker(el, {
+                locale: {
+                    days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+                    daysShort: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+                    daysMin: ['Su','Mo','Tu','We','Th','Fr','Sa'],
+                    months: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+                    monthsShort: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+                    today: 'Today', clear: 'Clear',
+                    dateFormat: 'MM/dd/yyyy', timeFormat: 'hh:ii aa', firstDay: 0
+                },
+                dateFormat: 'MM/dd/yyyy',
+                autoClose: true,
+                buttons: ['today'],
+                position: 'bottom left',
+                maxDate: new Date(),
+                onSelect: ({ date }) => {
+                    if (date) {
+                        const tzOffset = date.getTimezoneOffset() * 60000;
+                        el.value = (new Date(date - tzOffset)).toISOString().slice(0, 10);
+                    } else {
+                        el.value = '';
+                    }
+                    if (onSelectCallback) onSelectCallback(el.value);
+                }
+            });
+        }
+
+        function openDonationModal() {
+            document.getElementById('addModal').classList.remove('hidden');
+            const el = document.getElementById('donationDateInput');
+            if (el && !donationDatepicker) {
+                donationDatepicker = createModalDatepicker(el);
+                // Reposition calendar on modal scroll so it follows the input
+                document.getElementById('addModal').addEventListener('scroll', () => {
+                    if (donationDatepicker && donationDatepicker.visible) {
+                        donationDatepicker.show();
+                    }
+                }, { passive: true });
+            }
+        }
         function confirmDonationSubmit(event, form) {
             event.preventDefault();
             showConfirm(

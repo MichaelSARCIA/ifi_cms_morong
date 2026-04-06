@@ -9,13 +9,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use App\Mail\ApplicationForwarded;
-use Spatie\GoogleCalendar\Event;
 
 class ServiceRequestController extends Controller
 {
     public function index(Request $request)
     {
-        $query = ServiceRequest::with('priest')->whereNotIn('status', ['Completed', 'Approved'])->latest();
+        $query = ServiceRequest::with('priest')->latest();
 
         if ($request->has('type') && $request->input('type') !== '') {
             $query->where('service_type', trim($request->input('type')));
@@ -58,7 +57,40 @@ class ServiceRequestController extends Controller
         $selected_service = null;
         if ($request->has('type')) {
             $selected_service = \App\Models\ServiceType::where('name', $request->input('type'))->first();
+            
+            // If service type doesn't exist, redirect to the general list to avoid 500 errors in view
+            if (!$selected_service) {
+                return redirect()->route('service-requests.index')->with('error', 'Service type not found.');
+            }
         }
+
+        // Pre-process service definitions for the frontend
+        $serviceDefinitions = $service_types->map(function($s) {
+            $flds = $s->custom_fields;
+            if (is_string($flds)) $flds = json_decode($flds, true) ?? [];
+            if (is_array($flds)) {
+                $currentHeaderSlug = '';
+                foreach($flds as &$f) {
+                    $label = $f['label'] ?? '';
+                    $type = $f['type'] ?? 'text';
+                    $slug = \Illuminate\Support\Str::slug($label, '_');
+                    
+                    if ($type === 'header') {
+                        $currentHeaderSlug = $slug;
+                        $f['computed_key'] = $slug;
+                    } else {
+                        $f['computed_key'] = $currentHeaderSlug ? "{$currentHeaderSlug}_{$slug}" : $slug;
+                    }
+                }
+            }
+            return [
+                'name' => $s->name,
+                'custom_fields' => $flds,
+                'requirements' => is_string($s->requirements) ? json_decode($s->requirements, true) : ($s->requirements ?? []),
+                'icon' => $s->icon ?? 'fa-church',
+                'fee' => $s->fee
+            ];
+        })->toArray();
 
         // Check if there's a request_id to auto-open
         $autoOpenRequest = null;
@@ -73,7 +105,7 @@ class ServiceRequestController extends Controller
             $autoOpenRequest = $autoOpenQuery->first();
         }
 
-        return view('modules.service_requests.index', compact('requests', 'service_types', 'active_priests', 'selected_service', 'autoOpenRequest'));
+        return view('modules.service_requests.index', compact('requests', 'service_types', 'active_priests', 'selected_service', 'autoOpenRequest', 'serviceDefinitions'));
     }
 
     public function store(Request $request)
@@ -102,25 +134,13 @@ class ServiceRequestController extends Controller
         // However, since we added 'custom_data' => 'array' to casts, Laravel handles it.
 
         // Map custom_data to root columns if not provided at root (since UI fields were removed)
-        if (!empty($validated['custom_data'])) {
-            $cd = $validated['custom_data'];
-            if (empty($validated['first_name'])) {
-                $validated['first_name'] = $cd['first_name'] ?? ($cd['name'] ?? ($cd['applicant_name'] ?? null));
-            }
-            if (empty($validated['middle_name'])) {
-                $validated['middle_name'] = $cd['middle_name'] ?? ($cd['middle_initial'] ?? null);
-            }
-            if (empty($validated['last_name'])) {
-                $validated['last_name'] = $cd['last_name'] ?? ($cd['surname'] ?? ($cd['applicant_last_name'] ?? null));
-            }
-            if (empty($validated['suffix'])) {
-                $validated['suffix'] = $cd['suffix'] ?? null;
-            }
-            if (empty($validated['contact_number'])) {
-                $validated['contact_number'] = $cd['contact_number'] ?? ($cd['contact_no'] ?? ($cd['phone'] ?? ($cd['mobile'] ?? null)));
-            }
-            if (empty($validated['email'])) {
-                $validated['email'] = $cd['email'] ?? ($cd['email_address'] ?? null);
+        $this->mirrorCustomDataFields($validated);
+
+        if (!empty($validated['scheduled_date'])) {
+            try {
+                $validated['scheduled_date'] = \Carbon\Carbon::parse($validated['scheduled_date'])->format('Y-m-d');
+            } catch (\Exception $e) {
+                return back()->withErrors(['scheduled_date' => 'Invalid date format.'])->withInput();
             }
         }
 
@@ -144,6 +164,19 @@ class ServiceRequestController extends Controller
         // Default to For Priest Review for new applications since the dropdown was removed
         $validated['status'] = 'For Priest Review';
         $validated['payment_status'] = 'Pending';
+
+        // Persist local snapshot of requirements list and custom fields so it stays consistent during edits
+        $serviceDef = \App\Models\ServiceType::where('name', $validated['service_type'])->first();
+        if ($serviceDef) {
+            $customData = $validated['custom_data'] ?? [];
+            if ($serviceDef->requirements) {
+                $customData['_snapshot_requirements'] = $serviceDef->requirements;
+            }
+            if ($serviceDef->custom_fields) {
+                $customData['_snapshot_fields'] = $serviceDef->custom_fields;
+            }
+            $validated['custom_data'] = $customData;
+        }
 
         $newRequest = ServiceRequest::create($validated);
 
@@ -201,9 +234,19 @@ class ServiceRequestController extends Controller
             'custom_data' => 'nullable|array',
         ]);
 
-        $validated['scheduled_time'] = $this->parseScheduledTime($validated['scheduled_time'] ?? null);
-        if ($validated['scheduled_time'] === false) {
-            return back()->withErrors(['scheduled_time' => 'Invalid time format. Please use a valid time (e.g. 10:00 AM).'])->withInput();
+        if (!empty($validated['scheduled_date'])) {
+            try {
+                $validated['scheduled_date'] = \Carbon\Carbon::parse($validated['scheduled_date'])->format('Y-m-d');
+            } catch (\Exception $e) {
+                return back()->withErrors(['scheduled_date' => 'Invalid date format.'])->withInput();
+            }
+        }
+
+        if ($request->has('scheduled_time')) {
+            $validated['scheduled_time'] = $this->parseScheduledTime($validated['scheduled_time'] ?? null);
+            if ($validated['scheduled_time'] === false) {
+                return back()->withErrors(['scheduled_time' => 'Invalid time format. Please use a valid time (e.g. 10:00 AM).'])->withInput();
+            }
         }
 
         // Auto-sync payment status for manual approvals/completions from the Edit Modal
@@ -234,12 +277,27 @@ class ServiceRequestController extends Controller
             $validated['custom_data'] = $mergedData;
 
             // Map custom_data to root columns if not provided at root
-            $cd = $validated['custom_data'];
-            if (empty($validated['contact_number'])) {
-                $validated['contact_number'] = $cd['contact_number'] ?? ($cd['contact_no'] ?? ($cd['phone'] ?? ($cd['mobile'] ?? null)));
-            }
-            if (empty($validated['email'])) {
-                $validated['email'] = $cd['email'] ?? ($cd['email_address'] ?? null);
+            $this->mirrorCustomDataFields($validated);
+        } else {
+            // CRITICAL FIX: Retain existing custom_data if not submitted (e.g. from Quick Update Modal)
+            $validated['custom_data'] = $serviceRequest->custom_data ?? [];
+        }
+
+        // Fix for Requirements Checklist when all items are unchecked
+        if ($request->has('from_edit_modal') && !$request->has('requirements')) {
+            $validated['requirements'] = [];
+        }
+
+        // Ensure snapshots exist for older records being updated
+        if (empty($validated['custom_data']['_snapshot_fields']) || empty($validated['custom_data']['_snapshot_requirements'])) {
+            $serviceDef = \App\Models\ServiceType::where('name', $serviceRequest->service_type)->first();
+            if ($serviceDef) {
+                if (empty($validated['custom_data']['_snapshot_requirements'])) {
+                    $validated['custom_data']['_snapshot_requirements'] = $serviceDef->requirements;
+                }
+                if (empty($validated['custom_data']['_snapshot_fields'])) {
+                    $validated['custom_data']['_snapshot_fields'] = $serviceDef->custom_fields;
+                }
             }
         }
 
@@ -454,6 +512,124 @@ class ServiceRequestController extends Controller
         }
 
         return response()->json(['available' => true]);
+    }
+
+    /**
+     * Extracts name and contact information from custom_data and mirrors them to root columns.
+     */
+    private function mirrorCustomDataFields(array &$validated)
+    {
+        if (empty($validated['custom_data']) || !is_array($validated['custom_data'])) {
+            return;
+        }
+
+        $cd = $validated['custom_data'];
+
+        // 1. Map Contact Number (Look for keys ending in _contact_number or matching exactly)
+        if (empty($validated['contact_number'])) {
+            foreach ($cd as $key => $value) {
+                $lowKey = strtolower($key);
+                if ($value && ($lowKey === 'contact_number' || str_ends_with($lowKey, '_contact_number') || str_ends_with($lowKey, '_contact_no'))) {
+                    $validated['contact_number'] = $value;
+                    break;
+                }
+            }
+        }
+
+        // 2. Map Email Address
+        if (empty($validated['email'])) {
+            foreach ($cd as $key => $value) {
+                $lowKey = strtolower($key);
+                if ($value && ($lowKey === 'email' || str_ends_with($lowKey, '_email') || str_ends_with($lowKey, '_email_address'))) {
+                    $validated['email'] = $value;
+                    break;
+                }
+            }
+        }
+
+        // 3. Map Names (Prioritize Applicant/Contact Person over Subject)
+        $type = strtolower($validated['service_type'] ?? '');
+        
+        // Helper to find name by suffix
+        $findInCD = function($suffix) use ($cd) {
+            foreach ($cd as $k => $v) {
+                if ($v && (strtolower($k) === strtolower($suffix) || str_ends_with(strtolower($k), '_' . strtolower($suffix)))) {
+                    return $v;
+                }
+            }
+            return null;
+        };
+
+        if (empty($validated['first_name'])) {
+            // For services where the subject is NOT the applicant (Baptism, Confirmation, Funeral/Wake),
+            // skip the applicant name scan and go directly to the service-specific subject.
+            $isSubjectService = str_contains($type, 'baptism') || str_contains($type, 'confirmation') ||
+                                str_contains($type, 'funeral') || str_contains($type, 'wake');
+
+            if (!$isSubjectService) {
+                // Priority 1: Check for explicit "Applicant" or "Contact Person" full names first
+                foreach ($cd as $key => $val) {
+                    if (empty($val)) continue;
+                    $lowKey = strtolower($key);
+                    if (str_contains($lowKey, 'applicant') && (str_contains($lowKey, 'name') || str_contains($lowKey, 'full_name'))) {
+                        $validated['first_name'] = $val;
+                        break;
+                    }
+                    if (str_contains($lowKey, 'contact_person') && (str_contains($lowKey, 'name') || str_contains($lowKey, 'full_name'))) {
+                        $validated['first_name'] = $val;
+                        break;
+                    }
+                }
+            }
+
+            // Priority 2: Service-specific subjects
+            if (empty($validated['first_name'])) {
+                if (str_contains($type, 'funeral') || str_contains($type, 'wake')) {
+                    $validated['first_name'] = $cd['deceased_details_first_name'] ?? $cd['deceased_s_information_first_name'] ?? $findInCD('deceased') ?? $findInCD('first_name');
+                } elseif (str_contains($type, 'confirmation')) {
+                    $validated['first_name'] = $cd['confirmand_s_details_first_name'] ?? $cd['confirmand_details_first_name'] ?? $findInCD('confirmand') ?? $findInCD('first_name');
+                } elseif (str_contains($type, 'baptism')) {
+                    // CHILD's name is the subject — never use applicant/contact person's name here
+                    $validated['first_name'] = $cd['child_s_details_first_name'] ?? $cd['child_details_first_name'] ?? $cd['first_name'] ?? null;
+                } else {
+                    $validated['first_name'] = $findInCD('first_name') ?? $cd['name'] ?? $cd['full_name'] ?? null;
+                }
+            } else {
+                // If first_name was set from an "Applicant Full Name" (non-subject service),
+                // clear last_name to prevent redundancy (e.g. "Juan Reyes San Jose Reyes")
+                $validated['last_name'] = '';
+                $validated['middle_name'] = '';
+            }
+        }
+
+        if (empty($validated['last_name'])) {
+            if (str_contains($type, 'baptism')) {
+                $validated['last_name'] = $cd['child_s_details_last_name'] ?? $cd['child_details_last_name'] ?? $cd['last_name'] ?? $findInCD('last_name');
+            } elseif (str_contains($type, 'funeral') || str_contains($type, 'wake')) {
+                $validated['last_name'] = $cd['deceased_s_information_last_name'] ?? $cd['deceased_details_last_name'] ?? $findInCD('last_name');
+            } elseif (str_contains($type, 'confirmation')) {
+                $validated['last_name'] = $cd['confirmand_s_details_last_name'] ?? $cd['confirmand_details_last_name'] ?? $findInCD('last_name');
+            } else {
+                $validated['last_name'] = $findInCD('last_name') ?? null;
+            }
+        }
+        
+        if (empty($validated['middle_name'])) {
+            if (str_contains($type, 'baptism')) {
+                $validated['middle_name'] = $cd['child_s_details_middle_name'] ?? $cd['child_details_middle_name'] ?? $cd['middle_name'] ?? $findInCD('middle_name') ?? null;
+            } else {
+                $validated['middle_name'] = $findInCD('middle_name') ?? $cd['middle_initial'] ?? null;
+            }
+        }
+        
+        if (empty($validated['suffix'])) {
+            if (str_contains($type, 'baptism')) {
+                $sfxVal = $cd['child_s_details_suffix'] ?? $cd['child_details_suffix'] ?? $cd['suffix'] ?? null;
+                $validated['suffix'] = ($sfxVal && strtoupper($sfxVal) !== 'N/A') ? $sfxVal : null;
+            } else {
+                $validated['suffix'] = $findInCD('suffix') ?? null;
+            }
+        }
     }
 
     /**

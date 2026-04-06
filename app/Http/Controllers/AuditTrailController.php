@@ -59,7 +59,8 @@ class AuditTrailController extends Controller
         }
 
         $audit_logs = $query->paginate($perPage)->withQueryString();
+        $roles = DB::table('roles')->pluck('name');
 
-        return view('modules.audit_trail.index', compact('audit_logs', 'perPage'));
+        return view('modules.audit_trail.index', compact('audit_logs', 'perPage', 'roles'));
     }
 }

@@ -71,9 +71,9 @@
                     <select name="role" @change="submitSearch"
                         class="dropdown-btn w-full lg:w-auto">
                         <option value="">All Roles</option>
-                        <option value="Admin" {{ request('role') == 'Admin' ? 'selected' : '' }}>Admin</option>
-                        <option value="Priest" {{ request('role') == 'Priest' ? 'selected' : '' }}>Priest</option>
-                        <option value="Treasurer" {{ request('role') == 'Treasurer' ? 'selected' : '' }}>Treasurer</option>
+                        @foreach($roles as $roleName)
+                            <option value="{{ $roleName }}" {{ request('role') == $roleName ? 'selected' : '' }}>{{ $roleName }}</option>
+                        @endforeach
                     </select>
                 </div>
 
@@ -179,7 +179,7 @@
                                                 <div class="font-semibold text-gray-700 dark:text-gray-200">
                                                     {{ \Carbon\Carbon::parse($log->created_at)->format('F d, Y') }}
                                                 </div>
-                                                <div class="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
+                                                <div class="text-sm text-gray-400 dark:text-gray-400 mt-0.5">
                                                     {{ \Carbon\Carbon::parse($log->created_at)->format('h:i:s A') }}
                                                 </div>
                                             </td>
@@ -232,7 +232,7 @@
 
                                             {{-- IP Address --}}
                                             <td class="px-5 py-3.5 text-right whitespace-nowrap">
-                                                <span class="text-sm text-gray-400 dark:text-gray-500">{{ $log->ip_address ?? 'N/A' }}</span>
+                                                <span class="text-sm text-black dark:text-white font-bold">{{ $log->ip_address ?? 'N/A' }}</span>
                                             </td>
                                         </tr>
                         @endforeach

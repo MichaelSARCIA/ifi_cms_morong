@@ -59,11 +59,15 @@
         
         <!-- Main Content Area / Document Preview -->
         <div id="preview-container" class="w-full flex-1 preview-print overflow-visible h-auto mb-10">
-            <div class="bg-white text-black p-10 md:p-16 shadow-2xl shadow-gray-200/40 rounded-xl mx-auto min-h-[1056px] border border-gray-100 dark:border-gray-700" style="max-width: 816px; font-family: 'Times New Roman', Times, serif;">
+            <div class="bg-white text-black p-10 md:p-16 shadow-2xl shadow-gray-200/40 rounded-xl mx-auto border border-gray-100 dark:border-gray-700 transition-all duration-300" style="max-width: {{ $category === 'applicants' ? '1056px' : '816px' }}; min-height: {{ $category === 'applicants' ? '816px' : '1056px' }}; font-family: 'Times New Roman', Times, serif;">
                 
                 <!-- Document Header -->
                 <div class="relative mb-8 border-b-2 border-gray-800 pb-5 text-center">
-                    <img src="{{ asset('assets/img/logo.png') }}" alt="Logo" class="absolute left-8 top-1 w-20 h-auto object-contain">
+                    @if(isset($logo) && $logo)
+                        <img src="{{ asset('uploads/' . $logo) }}" alt="Logo" class="absolute left-8 top-1 w-20 h-auto object-contain">
+                    @else
+                        <img src="{{ asset('assets/img/logo.png') }}" alt="Logo" class="absolute left-8 top-1 w-20 h-auto object-contain">
+                    @endif
                     <div class="mx-auto max-w-lg mt-2">
                         <h1 class="text-2xl font-bold uppercase text-black" style="font-family: 'Georgia', serif;">{{ $churchName }}</h1>
                         <p class="text-sm font-bold text-gray-800 tracking-wide mb-1">{{ $dioceseName ?? 'Diocese of Rizal and Pampanga' }}</p>
@@ -85,7 +89,7 @@
                 @php
                     $categoryNames = [
                         'services' => 'Services Availed Report',
-                        'applicants' => 'List of Applicants',
+                        'applicants' => 'List of Recipients',
                         'collections' => 'Collections & Mass Offerings Report',
                         'donations' => 'Donations & Tithes Report',
                         'fees' => 'Service Fees Processed Report'
@@ -105,47 +109,37 @@
                 <!-- Render lists based on category -->
                 
                 @if($category === 'applicants')
-                    <!-- 0. Applicant List -->
-                    <div class="mb-8 pl-4 overflow-x-auto">
+                    <!-- 0. List of Recipients -->
+                    <div class="mb-8 pl-4">
                         @if(isset($applicantList) && count($applicantList) > 0)
-                            <table class="w-full text-sm text-left whitespace-nowrap" style="border-collapse: collapse;">
+                            <table class="w-full text-[11px] text-left" style="border-collapse: collapse;">
                                 <thead>
-                                    <tr class="border-b-2 border-gray-400 text-gray-600 text-xs uppercase">
-                                        <th class="py-2 px-2 text-center">No.</th>
-                                        <th class="py-2 px-2">Name</th>
-                                        <th class="py-2 px-2">Address</th>
-                                        <th class="py-2 px-2">Age / DOB</th>
-                                        <th class="py-2 px-2">Gender</th>
-                                        <th class="py-2 px-2">Civil Status</th>
-                                        <th class="py-2 px-2">Contact No.</th>
-                                        <th class="py-2 px-2">Email</th>
+                                    <tr class="border-b-2 border-gray-800 text-gray-900 font-bold">
+                                        <th class="py-2 px-2 text-center" style="width: 4%;">No.</th>
+                                        <th class="py-2 px-2" style="width: 18%;">Name of Recipient</th>
+                                        <th class="py-2 px-2" style="width: 15%;">Date of Birth & Age</th>
+                                        <th class="py-2 px-2" style="width: 15%;">Place of Birth</th>
+                                        <th class="py-2 px-2" style="width: 22%;">Parents' Names</th>
+                                        <th class="py-2 px-2" style="width: 16%;">Address</th>
+                                        <th class="py-2 px-2" style="width: 10%;">Service / Sacrament</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($applicantList as $applicant)
-                                    @php
-                                        $customData = $applicant->filtered_custom_data;
-                                        $address = $customData['complete_address'] ?? '';
-                                        $age = $customData['age'] ?? ($customData['age_date_of_birth'] ?? '');
-                                        $civilStatus = $customData['civil_status'] ?? '';
-                                        $gender = $customData['gender'] ?? '';
-                                        $email = $applicant->email ?? ($customData['email_address'] ?? '');
-                                    @endphp
-                                    <tr class="border-b border-gray-200 hover:bg-gray-50">
-                                        <td class="py-2 px-2 text-center font-bold text-gray-700">{{ $loop->iteration }}.</td>
-                                        <td class="py-2 px-2 font-semibold text-gray-900">{{ $applicant->applicant_name }}</td>
-                                        <td class="py-2 px-2 text-gray-700">{{ $address }}</td>
-                                        <td class="py-2 px-2 text-gray-700">{{ $age }}</td>
-                                        <td class="py-2 px-2 text-gray-700">{{ $gender }}</td>
-                                        <td class="py-2 px-2 text-gray-700">{{ $civilStatus }}</td>
-                                        <td class="py-2 px-2 text-gray-700">{{ $applicant->contact_number ?? 'N/A' }}</td>
-                                        <td class="py-2 px-2 text-gray-700">{{ $email }}</td>
+                                    <tr class="border-b border-gray-300 align-top hover:bg-gray-50">
+                                        <td class="py-3 px-2 text-center font-bold">{{ $loop->iteration }}.</td>
+                                        <td class="py-3 px-2 font-bold">{{ $applicant->recipient_name_formal }}</td>
+                                        <td class="py-3 px-2 text-gray-800">{{ $applicant->recipient_dob_age }}</td>
+                                        <td class="py-3 px-2 text-gray-800">{{ $applicant->recipient_pob }}</td>
+                                        <td class="py-3 px-2 text-gray-800 whitespace-pre-line">{{ $applicant->recipient_parents }}</td>
+                                        <td class="py-3 px-2 text-gray-800">{{ $applicant->recipient_address }}</td>
+                                        <td class="py-3 px-2 text-gray-800 font-medium">{{ $applicant->service_type }}</td>
                                     </tr>
                                     @endforeach
                                 </tbody>
                             </table>
                         @else
-                            <p class="italic text-center text-gray-500">No applicants found in this period.</p>
+                            <p class="italic text-center text-gray-500">No recipients found in this period.</p>
                         @endif
                     </div>
                 @endif
@@ -157,19 +151,21 @@
                             <table class="w-full text-sm text-left">
                                 <thead>
                                     <tr class="border-b border-gray-300">
-                                        <th class="py-2 pr-2 w-8">No.</th>
-                                        <th class="py-2 px-2 w-1/4">Date</th>
-                                        <th class="py-2 px-2 w-1/4">Service Type</th>
-                                        <th class="py-2 px-2 w-2/4">Requested By</th>
+                                        <th class="py-2 pr-2" style="width: 5%;">No.</th>
+                                        <th class="py-2 px-2" style="width: 20%;">Date</th>
+                                        <th class="py-2 px-2" style="width: 25%;">Service Type</th>
+                                        <th class="py-2 px-2" style="width: 25%;">Requested By</th>
+                                        <th class="py-2 px-2" style="width: 25%;">Subject / Beneficiary</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($serviceRequestsList as $req)
                                     <tr class="border-b border-gray-200">
-                                        <td class="py-3 pr-2 font-bold">{{ $loop->iteration }}.</td>
+                                        <td class="py-3 pr-2 font-bold text-center">{{ $loop->iteration }}.</td>
                                         <td class="py-3 px-2">{{ \Carbon\Carbon::parse($req->request_date)->format('F d, Y') }}</td>
-                                        <td class="py-3 px-2">{{ $req->service_type }}</td>
-                                        <td class="py-3 px-2 font-bold">{{ $req->client_name }}</td>
+                                        <td class="py-3 px-2 font-medium">{{ $req->service_type }}</td>
+                                        <td class="py-3 px-2 font-bold text-gray-900">{{ $req->applicant_name }}</td>
+                                        <td class="py-3 px-2 font-bold text-gray-800">{{ $req->subject_name }}</td>
                                     </tr>
                                     @endforeach
                                 </tbody>
@@ -189,6 +185,7 @@
                                     <tr class="border-b border-gray-300">
                                         <th class="py-2 pr-2 w-8">No.</th>
                                         <th class="py-2 px-2">Date</th>
+                                        <th class="py-2 px-2">Type</th>
                                         <th class="py-2 px-2">Source/Event</th>
                                         <th class="py-2 px-2 text-right">Amount (PHP)</th>
                                     </tr>
@@ -198,7 +195,13 @@
                                     <tr class="border-b border-gray-200">
                                         <td class="py-3 pr-2 font-bold">{{ $loop->iteration }}.</td>
                                         <td class="py-3 px-2">{{ \Carbon\Carbon::parse($col->date_received)->format('F d, Y') }}</td>
-                                        <td class="py-3 px-2 font-bold">{{ $col->donor_name ?? 'N/A' }}</td>
+                                        <td class="py-3 px-2"><span style="color: #666; font-weight: 500;">{{ $col->type }}</span></td>
+                                        <td class="py-3 px-2 font-bold">
+                                            {{ $col->remarks }}
+                                            @if(isset($col->notes) && $col->notes)
+                                                <br><span class="text-xs text-gray-500 font-normal italic">{{ $col->notes }}</span>
+                                            @endif
+                                        </td>
                                         <td class="py-3 px-2 text-right">PHP {{ number_format($col->amount, 2) }}</td>
                                     </tr>
                                     @endforeach
@@ -220,6 +223,8 @@
                                         <th class="py-2 pr-2 w-8">No.</th>
                                         <th class="py-2 px-2">Date</th>
                                         <th class="py-2 px-2">Donor Name</th>
+                                        <th class="py-2 px-2">Fund / Purpose</th>
+                                        <th class="py-2 px-2">Mode of Payment</th>
                                         <th class="py-2 px-2 text-right">Amount (PHP)</th>
                                     </tr>
                                 </thead>
@@ -229,6 +234,8 @@
                                         <td class="py-3 pr-2 font-bold">{{ $loop->iteration }}.</td>
                                         <td class="py-3 px-2">{{ \Carbon\Carbon::parse($don->date_received)->format('F d, Y') }}</td>
                                         <td class="py-3 px-2 font-bold">{{ $don->donor_name ?? 'Anonymous' }}</td>
+                                        <td class="py-3 px-2">{{ $don->type ?? '—' }}</td>
+                                        <td class="py-3 px-2">{{ $don->payment_method ?? '—' }}</td>
                                         <td class="py-3 px-2 text-right">PHP {{ number_format($don->amount, 2) }}</td>
                                     </tr>
                                     @endforeach

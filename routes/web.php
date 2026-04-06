@@ -32,10 +32,35 @@ Route::post('/reset-password', [AuthController::class, 'updatePassword'])->name(
 Route::middleware(['auth'])->group(function () {
 
     // Unified Dashboard
-    Route::get('/dashboard', [App\Http\Controllers\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard', [App\Http\Controllers\DashboardController::class, 'index'])->middleware(['module:dashboard'])->name('dashboard');
     Route::get('/', function () {
-        return redirect()->route('dashboard');
-    }); // Redirect root to dashboard if auth
+        $user = auth()->user();
+        if ($user->hasModule('dashboard')) {
+            return redirect()->route('dashboard');
+        }
+
+        // Logic mapping modules to routes (Duplicate of AuthController helper to ensure root always redirects correctly)
+        $moduleRoutes = [
+            'scheduling'       => 'schedules',
+            'service_requests' => 'service-requests.index',
+            'collections'      => 'collections',
+            'donations'        => 'donations',
+            'service_records'  => 'sacraments',
+            'reports'          => 'reports',
+            'system_settings'  => 'system-settings.index',
+            'system_roles'     => 'roles.index',
+            'user_accounts'    => 'users',
+            'audit_trail'      => 'audit-trail',
+        ];
+
+        foreach ($moduleRoutes as $module => $route) {
+            if ($user->hasModule($module)) {
+                return redirect()->route($route);
+            }
+        }
+
+        return redirect()->route('profile');
+    }); // Redirect root to dashboard or first module if auth
 
     // --- Modules ---
 
@@ -61,6 +86,7 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/users/{id}', [App\Http\Controllers\AccessControlController::class, 'update'])->name('users.update');
         Route::delete('/users/{id}', [App\Http\Controllers\AccessControlController::class, 'destroy'])->name('users.destroy');
         Route::post('/users/{id}/restore', [App\Http\Controllers\AccessControlController::class, 'restore'])->name('users.restore');
+        Route::delete('/users/{id}/force', [App\Http\Controllers\AccessControlController::class, 'forceDelete'])->name('users.force-delete');
         Route::get('/users/status', [App\Http\Controllers\AccessControlController::class, 'getUserStatuses'])->name('users.status');
     });
 
@@ -155,4 +181,27 @@ Route::middleware(['auth'])->group(function () {
     // Service Manifest
     Route::middleware(['module:service_records'])->get('/service-manifest', [App\Http\Controllers\ServiceManifestController::class, 'index'])->name('service-manifest');
 
+});
+
+// Development / Deployment Helper: Clear all caches via URL
+Route::get('/clear-cache', function() {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('view:clear');
+        \Illuminate\Support\Facades\Artisan::call('route:clear');
+        \Illuminate\Support\Facades\Artisan::call('config:clear');
+        \Illuminate\Support\Facades\Artisan::call('cache:clear');
+        return "All caches (view, route, config, data) cleared successfully!";
+    } catch (\Exception $e) {
+        return "Error clearing cache: " . $e->getMessage();
+    }
+});
+
+// Hostinger / Shared Hosting Helper: Link Storage via URL
+Route::get('/storage-link', function() {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('storage:link');
+        return "Storage link created successfully!";
+    } catch (\Exception $e) {
+        return "Error linking storage: " . $e->getMessage();
+    }
 });

@@ -89,6 +89,7 @@
     </script>
 
     <!-- MAIN -->
+    @if(Auth::user()->hasModule('dashboard'))
     <div class="px-2 mt-2 mb-3">
         <a href="{{ route('dashboard') }}"
             class="flex items-center gap-4 px-4 py-3.5 bg-white border border-gray-100 shadow-sm {{ $currentRoute == 'dashboard' ? 'ring-2 ring-blue-500/20 border-blue-200 text-blue-700 dark:bg-blue-900/40 dark:border-blue-700/50 dark:text-blue-300' : 'text-gray-700 hover:border-gray-300 hover:shadow-md dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:border-gray-600' }} rounded-xl font-bold transition-all group duration-200">
@@ -99,6 +100,7 @@
             <span class="tracking-wide text-[15px]">Dashboard</span>
         </a>
     </div>
+    @endif
 
     <!-- MINISTRY SERVICES -->
     @if(Auth::user()->hasModule('service_requests') || Auth::user()->hasModule('scheduling') || Auth::user()->hasModule('service_records'))
@@ -305,7 +307,16 @@
     </button>
 
     <form action="{{ route('logout') }}" method="POST"
-        onsubmit="event.preventDefault(); const form = this; showConfirm('Logout System', 'Are you sure you want to end your current session?', 'bg-red-600 hover:bg-red-700', () => form.submit(), 'Logout')">
+        onsubmit="event.preventDefault(); const form = this; showConfirm('Logout System', 'Are you sure you want to end your current session?', 'bg-red-600 hover:bg-red-700', () => {
+            // Clear all service request form persistence on logout
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('service_request_')) {
+                    localStorage.removeItem(key);
+                }
+            });
+            window.dispatchEvent(new Event('clear-service-forms'));
+            form.submit();
+        }, 'Logout')">
         @csrf
         <button type="submit"
             class="w-full flex items-center justify-start gap-3 px-4 py-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors text-[15px] font-bold border border-transparent hover:border-red-100 dark:hover:border-red-900/30 group">

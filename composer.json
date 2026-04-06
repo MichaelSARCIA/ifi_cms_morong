@@ -11,6 +11,7 @@
     "require": {
         "php": "^8.2",
         "barryvdh/laravel-dompdf": "*",
+        "ifsnop/mysqldump-php": "*",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "masbug/flysystem-google-drive-ext": "*",

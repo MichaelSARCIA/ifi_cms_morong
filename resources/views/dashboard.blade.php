@@ -65,7 +65,7 @@
                     <div class="flex justify-between items-center text-left">
                         <div>
                             <p class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">For Priest Review</p>
-                            <h3
+                            <h3 data-priest-review-count
                                 class="text-3xl font-extrabold text-gray-900 dark:text-white group-hover:text-amber-600 transition-colors">
                                 {{ $data['pending_requests_count'] }}
                             </h3>
@@ -163,6 +163,7 @@
                     <div x-data="{
                         search: '',
                         filterType: '',
+                        filterStatus: '',
                         serviceColors: {{ json_encode(ServiceHelper::getServiceColorMap()) }},
                         getServiceClass(type) {
                             const t = (type || '').toLowerCase();
@@ -175,7 +176,8 @@
                                 const type = (r.service_type || '').toLowerCase();
                                 const matchSearch = !this.search || name.includes(this.search.toLowerCase()) || type.includes(this.search.toLowerCase());
                                 const matchType = !this.filterType || r.service_type === this.filterType;
-                                return matchSearch && matchType;
+                                const matchStatus = !this.filterStatus || r.status === this.filterStatus;
+                                return matchSearch && matchType && matchStatus;
                             });
                         },
                         async approveRequest(row) {
@@ -205,8 +207,16 @@
                                         
                                         if(response.ok) {
                                             row.status = 'For Payment';
-                                            // Instantly remove from the grid view
-                                            this.rows = this.rows.filter(r => r.id !== row.id);
+                                            
+                                            // Update Top KPI Count instantly
+                                            const countEl = document.querySelector('[data-priest-review-count]');
+                                            if (countEl) {
+                                                let current = parseInt(countEl.innerText) || 0;
+                                                if (current > 0) countEl.innerText = current - 1;
+                                            }
+
+                                            // Note: Row is NO LONGER filtered out instantly unless you change the filterStatus
+
                                             window.showConfirmModal({
                                                 title: 'Success',
                                                 message: 'Request confirmed successfully.',
@@ -267,6 +277,16 @@
                                 </span>
                                 <input type="text" x-model="search" placeholder="Search by name or service type…"
                                     class="w-full pl-8 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition-colors">
+                            </div>
+                            {{-- Status Filter --}}
+                            <div class="relative">
+                                <select x-model="filterStatus"
+                                    class="dropdown-btn text-sm w-full sm:w-auto">
+                                    <option value="">All Status</option>
+                                    <option value="For Priest Review">For Priest Review</option>
+                                    <option value="For Payment">For Payment</option>
+                                    <option value="Approved">Approved</option>
+                                </select>
                             </div>
                             {{-- Type Filter --}}
                             <div class="relative">
@@ -410,17 +430,10 @@
                                 <input type="text" x-model="search" placeholder="Search by name or service type…"
                                     class="w-full pl-8 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none transition-colors">
                             </div>
-                            {{-- Status Filter --}}
-                            <select x-model="filterStatus"
-                                class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-3 py-2 w-full sm:w-auto focus:ring-2 focus:ring-green-400 outline-none transition-colors">
-                                <option value="">All Status</option>
-                                <option value="For Payment">For Payment</option>
-                                <option value="Approved">Approved</option>
-                            </select>
                             {{-- Payment Status Filter --}}
                             <select x-model="filterPayment"
                                 class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-3 py-2 w-full sm:w-auto focus:ring-2 focus:ring-green-400 outline-none transition-colors">
-                                <option value="">All Payments</option>
+                                <option value="">All Payments Status</option>
                                 <option value="Pending">Pending</option>
                                 <option value="Paid">Paid</option>
                             </select>
@@ -444,8 +457,7 @@
                                     <th class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-left font-semibold">Applicant</th>
                                     <th class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-left font-semibold">Service</th>
                                     <th class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-left font-semibold">Sched. Date & Time</th>
-                                    <th class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-left font-semibold">Status</th>
-                                    <th class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-left font-semibold">Payment</th>
+                                    <th class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-left font-semibold text-center">Payment Status</th>
                                     <th class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-left font-semibold">Contact</th>
                                     <th class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-center font-semibold">Action</th>
                                 </tr>
@@ -466,22 +478,11 @@
                                                 <span class="text-xs text-gray-400" x-text="row.scheduled_time ? (() => { try { return new Date('1970-01-01T' + row.scheduled_time).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true }); } catch(e) { return row.scheduled_time; } })() : ''"></span>
                                             </div>
                                         </td>
-                                        <td class="px-4 py-3">
-                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border"
-                                                :class="{
-                                                    'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800/40': row.status === 'Pending',
-                                                    'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-800/40': row.status === 'For Priest Review',
-                                                    'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800/40': row.status === 'For Payment',
-                                                    'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800/40': row.status === 'Approved',
-                                                }"
-                                                x-text="row.status">
-                                            </span>
-                                        </td>
-                                        <td class="px-4 py-3">
+                                        <td class="px-4 py-3 text-center">
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border"
                                                 :class="{
                                                     'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600': row.payment_status === 'Pending',
-                                                    'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800/40': row.payment_status === 'Paid',
+                                                    'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-amber-800/40': row.payment_status === 'Paid',
                                                     'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/20 dark:text-sky-300 dark:border-sky-800/40': row.payment_status === 'Waived',
                                                 }"
                                                 x-text="row.payment_status">

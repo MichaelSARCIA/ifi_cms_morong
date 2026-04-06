@@ -71,7 +71,16 @@
 
                         <!-- RIGHT: Details Form -->
                         <div class="flex-1">
-                            <form action="{{ route('profile.update-account') }}" method="POST" class="space-y-6">
+                            <form action="{{ route('profile.update-account') }}" method="POST" class="space-y-6"
+                                x-data="{ newPassword: '' }"
+                                @submit="
+                                    if (newPassword && newPassword.length < 8) {
+                                        $event.preventDefault();
+                                        $dispatch('show-toast', { type: 'error', message: 'New password must be at least 8 characters.' });
+                                        newPassword = '';
+                                        return;
+                                    }
+                                ">
                                 @csrf
 
                                 <div>
@@ -86,22 +95,51 @@
                                         <i class="fas fa-lock text-gray-400"></i> Security
                                     </h4>
 
-                                    <div class="grid grid-cols-1 gap-6">
-                                        <div class="mb-2">
-                                            <label class="block text-sm font-bold text-gray-500 uppercase mb-2">Current Password
-                                                <span class="text-xs text-amber-500 font-normal lowercase">(Required to change password)</span></label>
-                                            <input type="password" name="current_password" placeholder="Enter current password"
-                                                class="w-full px-5 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-800 dark:text-white">
+                                    <div class="grid grid-cols-1 gap-6"
+                                        x-data="{ 
+                                            newPassword: '',
+                                            get strength() {
+                                                if (!this.newPassword) return null;
+                                                let score = 0;
+                                                if (this.newPassword.length >= 8) score++;
+                                                if (/[A-Z]/.test(this.newPassword)) score++;
+                                                if (/[0-9]/.test(this.newPassword)) score++;
+                                                if (/[@$!%*#?&]/.test(this.newPassword)) score++;
+                                                
+                                                if (this.newPassword.length < 8) return { label: 'Weak', class: 'bg-red-500', width: '33%', textClass: 'text-red-500' };
+                                                if (score <= 3) return { label: 'Medium', class: 'bg-amber-500', width: '66%', textClass: 'text-amber-500' };
+                                                return { label: 'Strong', class: 'bg-green-500', width: '100%', textClass: 'text-green-500' };
+                                            }
+                                        }">
+                                        
+                                        <div>
+                                            <label class="block text-sm font-bold text-gray-500 uppercase mb-2 flex justify-between items-center">
+                                                <span>New Password <span class="text-xs text-gray-400 font-normal lowercase">(Optional)</span></span>
+                                                <span class="text-xs font-bold text-primary/70 uppercase tracking-tight">Min. 8 Characters</span>
+                                            </label>
+                                            <div class="relative">
+                                                <input type="password" name="password" x-model="newPassword" placeholder="Leave blank to keep current"
+                                                    class="w-full px-5 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-800 dark:text-white">
+                                            </div>
+                                            
+                                            <!-- Strength Meter Below -->
+                                            <div x-show="newPassword" class="mt-3 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700/50 transition-all animate-fade-in">
+                                                <div class="flex justify-between items-center mb-2">
+                                                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Password Strength</span>
+                                                    <span class="text-[10px] font-black uppercase tracking-tight" :class="strength.textClass" x-text="strength.label"></span>
+                                                </div>
+                                                <div class="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                    <div class="h-full transition-all duration-500" :class="strength.class" :style="'width: ' + strength.width"></div>
+                                                </div>
+                                            </div>
+
+                                            <p x-show="newPassword && newPassword.length < 8" 
+                                                class="text-xs text-red-500 mt-2 font-bold flex items-center gap-1 ml-1">
+                                                <i class="fas fa-info-circle"></i> <span>Need at least 8 characters.</span>
+                                            </p>
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-bold text-gray-500 uppercase mb-2">New Password
-                                                <span class="text-xs text-gray-400 font-normal lowercase">(Optional)</span></label>
-                                            <input type="password" name="password" placeholder="Leave blank to keep current"
-                                                class="w-full px-5 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-800 dark:text-white">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-bold text-gray-500 uppercase mb-2">Confirm New
-                                                Password</label>
+                                            <label class="block text-sm font-bold text-gray-500 uppercase mb-2">Confirm New Password</label>
                                             <input type="password" name="password_confirmation"
                                                 placeholder="Confirm new password"
                                                 class="w-full px-5 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-gray-800 dark:text-white">

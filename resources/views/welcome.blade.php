@@ -103,7 +103,7 @@
     <!-- Footer -->
     <div class="absolute bottom-6 left-0 w-full text-center z-20 animate-fade-in-up" style="animation-delay: 450ms;">
         <p class="text-[10px] md:text-xs text-gray-500 font-light tracking-widest uppercase">
-            &copy; {{ date('Y') }} {{ $global_settings['system_short_name'] ?? 'IFI CMS' }}. All rights reserved.
+            &copy; {{ date('Y') }} {{ str_replace(["\r", "\n"], ' ', $global_settings['system_name'] ?? 'Iglesia Filipina Independiente') }}, All rights reserved.
         </p>
     </div>
 

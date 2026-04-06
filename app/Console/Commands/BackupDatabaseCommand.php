@@ -8,6 +8,15 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use App\Helpers\AuditLogger;
 use Carbon\Carbon;
+use Ifsnop\Mysqldump\Mysqldump;
+
+// Manual include as fallback for environment issues
+if (!class_exists(Mysqldump::class)) {
+    $path = base_path('vendor/ifsnop/mysqldump-php/src/Ifsnop/Mysqldump/Mysqldump.php');
+    if (file_exists($path)) {
+        require_once $path;
+    }
+}
 
 class BackupDatabaseCommand extends Command
 {
@@ -43,7 +52,7 @@ class BackupDatabaseCommand extends Command
 
         $this->info('Starting database backup process...');
         
-        $filename = 'scheduled-backup-' . date('Y-m-d-H-i-s') . '.sql';
+        $filename = 'scheduled-backup-' . now()->format('Y-m-d-H-i-s') . '.sql';
         $path = storage_path('app/backups/' . $filename);
 
         if (!file_exists(storage_path('app/backups'))) {
@@ -55,21 +64,19 @@ class BackupDatabaseCommand extends Command
         $host = config('database.connections.mysql.host');
         $db   = config('database.connections.mysql.database');
 
-        $passStr = empty($pass) ? "" : "--password=\"" . addslashes($pass) . "\"";
+        try {
+            $dump = new Mysqldump("mysql:host=$host;dbname=$db", $user, $pass, [
+                'add-drop-table' => true,
+                'single-transaction' => true,
+                'lock-tables' => false,
+                'add-locks' => true,
+                'extended-insert' => true,
+                'disable-keys' => true,
+                'default-character-set' => 'utf8mb4',
+            ]);
+            
+            $dump->start($path);
 
-        // Try standard path first
-        $command = "mysqldump --user=" . escapeshellarg($user) . " {$passStr} --host=" . escapeshellarg($host) . " " . escapeshellarg($db) . " > " . escapeshellarg($path) . " 2>&1";
-        exec($command, $output, $result);
-
-        if ($result !== 0) {
-            $xamppPath = "C:\\xampp\\mysql\\bin\\mysqldump.exe";
-            if (file_exists($xamppPath)) {
-                $command = "\"$xamppPath\" --user=" . escapeshellarg($user) . " {$passStr} --host=" . escapeshellarg($host) . " " . escapeshellarg($db) . " > " . escapeshellarg($path) . " 2>&1";
-                exec($command, $output, $result);
-            }
-        }
-
-        if ($result === 0) {
             // Prepend foreign key checks
             $sql = file_get_contents($path);
             $newSql = "SET FOREIGN_KEY_CHECKS=0;\n" . $sql . "\nSET FOREIGN_KEY_CHECKS=1;\n";
@@ -94,9 +101,9 @@ class BackupDatabaseCommand extends Command
                 }
             }
 
-        } else {
-            $this->error("Database backup failed: \n" . implode("\n", $output));
-            Log::error("Scheduled database backup failed: " . implode("\n", $output));
+        } catch (\Exception $e) {
+            $this->error("Database backup failed: " . $e->getMessage());
+            Log::error("Scheduled database backup failed: " . $e->getMessage());
         }
     }
 }
